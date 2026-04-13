@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#6366f1">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Book Tracker">
+  <link rel="apple-touch-icon" href="/book-tracker/icon.svg">
+  <link rel="manifest" href="/book-tracker/manifest.json">
+  <title>Book Tracker</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --pr: #6366f1;
+      --pr-hov: #4f46e5;
+      --pr-lt: #eef2ff;
+      --dan: #ef4444;
+      --dan-hov: #dc2626;
+      --star: #f59e0b;
+      --bg: #f1f5f9;
+      --surf: #ffffff;
+      --surf2: #f8fafc;
+      --bdr: #e2e8f0;
+      --txt: #1e293b;
+      --txt2: #64748b;
+      --txt3: #94a3b8;
+      --sh: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+      --sh-md: 0 4px 6px -1px rgba(0,0,0,.07), 0 2px 4px -2px rgba(0,0,0,.05);
+      --sh-lg: 0 10px 25px -5px rgba(0,0,0,.1), 0 8px 10px -6px rgba(0,0,0,.05);
+      --rad: 14px;
+      --rad-s: 9px;
+      --rad-xs: 6px;
+      --hh: 56px;
+      --nh: 64px;
+      --tr: .2s ease;
+    }
+    [data-theme="dark"] {
+      --pr-lt: #1e1b4b;
+      --bg: #0f172a;
+      --surf: #1e293b;
+      --surf2: #263348;
+      --bdr: #334155;
+      --txt: #f1f5f9;
+      --txt2: #94a3b8;
+      --txt3: #64748b;
+      --sh: 0 1px 3px rgba(0,0,0,.3);
+      --sh-md: 0 4px 6px -1px rgba(0,0,0,.3);
+      --sh-lg: 0 10px 25px -5px rgba(0,0,0,.45);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── HEADER ── */
+    .app-header {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: var(--hh);
+      background: var(--surf);
+      border-bottom: 1px solid var(--bdr);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px;
+      z-index: 100;
+      transition: background var(--tr);
+    }
+    .app-logo {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 17px; font-weight: 700; color: var(--pr);
+    }
+    .app-logo svg { flex-shrink: 0; }
+    .hdr-right { display: flex; align-items: center; gap: 8px; }
+    .theme-btn {
+      background: var(--surf2); border: 1px solid var(--bdr);
+      border-radius: var(--rad-xs); width: 34px; height: 34px;
+      font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background var(--tr);
+    }
+    .theme-btn:hover { background: var(--bdr); }
+    .add-btn {
+      background: var(--pr); color: #fff;
+      border: none; border-radius: var(--rad-s);
+      padding: 7px 14px; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: background var(--tr);
+      white-space: nowrap;
+    }
+    .add-btn:hover { background: var(--pr-hov); }
+
+    /* ── INSTALL BANNER ── */
+    .install-banner {
+      position: fixed; top: var(--hh); left: 0; right: 0;
+      background: var(--pr); color: #fff;
+      padding: 10px 16px;
+      display: flex; align-items: center; gap: 10px;
+      z-index: 99; font-size: 13px;
+    }
+    .install-banner span { flex: 1; }
+    .ibtn {
+      background: rgba(255,255,255,.22); color: #fff;
+      border: 1px solid rgba(255,255,255,.5);
+      border-radius: var(--rad-xs); padding: 5px 12px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .idismiss { background: none; border: none; color: rgba(255,255,255,.7); font-size: 18px; cursor: pointer; line-height: 1; }
+
+    /* ── MAIN ── */
+    .main-wrap {
+      padding-top: var(--hh);
+      padding-bottom: var(--nh);
+      min-height: 100vh;
+    }
+    .tab-pane { display: none; padding: 14px 14px 0; }
+    .tab-pane.active { display: block; }
+
+    /* ── CONTROLS ── */
+    .search-box {
+      position: relative; margin-bottom: 8px;
+    }
+    .search-icon {
+      position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+      color: var(--txt3); pointer-events: none; font-size: 14px;
+    }
+    .search-input {
+      width: 100%; padding: 10px 12px 10px 34px;
+      background: var(--surf); border: 1.5px solid var(--bdr);
+      border-radius: var(--rad); color: var(--txt); font-size: 14px;
+      outline: none; transition: border-color var(--tr);
+    }
+    .search-input:focus { border-color: var(--pr); }
+    .search-input::placeholder { color: var(--txt3); }
+    .filter-row {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;
+    }
+    .flt {
+      flex: 1; min-width: 90px;
+      padding: 8px 8px;
+      background: var(--surf); border: 1.5px solid var(--bdr);
+      border-radius: var(--rad-s); color: var(--txt); font-size: 12px;
+      cursor: pointer; outline: none;
+      transition: border-color var(--tr);
+    }
+    .flt:focus { border-color: var(--pr); }
+    .list-meta {
+      font-size: 12px; color: var(--txt3); margin-bottom: 10px;
+      font-weight: 500;
+    }
+
+    /* ── BOOK GRID ── */
+    .book-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: 10px;
+      padding-bottom: 14px;
+    }
+    @media (max-width: 380px) { .book-grid { grid-template-columns: 1fr; } }
+
+    /* ── BOOK CARD ── */
+    .book-card {
+      background: var(--surf);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rad);
+      padding: 13px 13px 11px;
+      cursor: pointer;
+      box-shadow: var(--sh);
+      display: flex; flex-direction: column; gap: 5px;
+      transition: box-shadow var(--tr), transform var(--tr), border-color var(--tr);
+    }
+    .book-card:hover { box-shadow: var(--sh-md); transform: translateY(-1px); border-color: #c7d2fe; }
+    [data-theme="dark"] .book-card:hover { border-color: #4338ca; }
+    .book-card:active { transform: translateY(0); }
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
+    .card-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+    .badge {
+      font-size: 10px; padding: 2px 7px; border-radius: 20px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-cat { background: var(--pr-lt); color: var(--pr); }
+    .badge-reading { background: #dbeafe; color: #2563eb; }
+    .badge-done { background: #dcfce7; color: #16a34a; }
+    .badge-stopped { background: #f1f5f9; color: #64748b; }
+    [data-theme="dark"] .badge-reading { background: #1e3a5f; color: #60a5fa; }
+    [data-theme="dark"] .badge-done { background: #14532d; color: #4ade80; }
+    [data-theme="dark"] .badge-stopped { background: #273449; color: #94a3b8; }
+    .card-acts { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .want-icon { font-size: 13px; }
+    .del-btn {
+      background: none; border: none;
+      color: var(--txt3); font-size: 12px; cursor: pointer;
+      padding: 2px 4px; border-radius: 4px;
+      opacity: .5; transition: opacity var(--tr), color var(--tr);
+      line-height: 1;
+    }
+    .del-btn:hover { opacity: 1; color: var(--dan); }
+    .card-title {
+      font-size: 14px; font-weight: 650; color: var(--txt);
+      line-height: 1.4; word-break: break-word;
+    }
+    .card-sub { font-size: 12px; color: var(--txt2); }
+    .card-bot { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; }
+    .stars-sm { display: flex; gap: 1px; }
+    .star-sm { font-size: 12px; color: var(--txt3); }
+    .star-sm.filled { color: var(--star); }
+    .card-date { font-size: 11px; color: var(--txt3); }
+    .card-review {
+      font-size: 11px; color: var(--txt2);
+      line-height: 1.5; border-top: 1px solid var(--bdr);
+      padding-top: 6px; margin-top: 2px;
+      font-style: italic;
+    }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      text-align: center; padding: 64px 20px; color: var(--txt2);
+    }
+    .empty-icon { font-size: 52px; margin-bottom: 14px; }
+    .empty-state p { margin-bottom: 18px; font-size: 15px; }
+
+    /* ── BOTTOM NAV ── */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: var(--nh);
+      background: var(--surf);
+      border-top: 1px solid var(--bdr);
+      display: flex; z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+      transition: background var(--tr);
+    }
+    .nav-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 2px;
+      background: none; border: none; color: var(--txt3);
+      cursor: pointer; transition: color var(--tr); padding: 6px;
+    }
+    .nav-btn.active { color: var(--pr); }
+    .nav-btn.active .nav-icon { transform: scale(1.1); }
+    .nav-icon { font-size: 20px; transition: transform var(--tr); line-height: 1; }
+    .nav-lbl { font-size: 10px; font-weight: 600; letter-spacing: .02em; }
+
+    /* ── MODAL OVERLAY ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.48);
+      display: flex; align-items: flex-end; justify-content: center;
+      z-index: 200;
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+    }
+    @media (min-width: 580px) {
+      .modal-overlay { align-items: center; padding: 16px; }
+    }
+    .modal-box {
+      background: var(--surf);
+      border-radius: var(--rad) var(--rad) 0 0;
+      width: 100%; max-width: 580px;
+      max-height: 92vh; overflow-y: auto;
+      padding: 20px 18px;
+      transition: background var(--tr);
+    }
+    @media (min-width: 580px) { .modal-box { border-radius: var(--rad); max-height: 88vh; } }
+    .modal-box-sm { max-height: 55vh; }
+    .modal-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    .modal-title { font-size: 17px; font-weight: 700; }
+    .modal-close {
+      background: var(--surf2); border: 1px solid var(--bdr);
+      border-radius: 50%; width: 32px; height: 32px;
+      cursor: pointer; font-size: 14px; color: var(--txt2);
+      display: flex; align-items: center; justify-content: center;
+      transition: background var(--tr);
+    }
+    .modal-close:hover { background: var(--bdr); }
+
+    /* ── FORM ── */
+    .book-form { display: flex; flex-direction: column; gap: 13px; }
+    .fg { display: flex; flex-direction: column; gap: 5px; }
+    .fr { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 360px) { .fr { grid-template-columns: 1fr; } }
+    .flbl { font-size: 12px; font-weight: 600; color: var(--txt2); }
+    .req { color: var(--dan); }
+    .finput {
+      width: 100%; padding: 10px 12px;
+      background: var(--surf2); border: 1.5px solid var(--bdr);
+      border-radius: var(--rad-s); color: var(--txt); font-size: 14px;
+      outline: none; transition: border-color var(--tr), background var(--tr);
+      font-family: inherit;
+    }
+    .finput:focus { border-color: var(--pr); background: var(--surf); }
+    .finput::placeholder { color: var(--txt3); }
+    textarea.finput { min-height: 76px; resize: vertical; line-height: 1.5; }
+    .form-acts { display: flex; gap: 10px; margin-top: 4px; }
+    .form-acts button { flex: 1; }
+
+    /* ── STAR RATING (form) ── */
+    .star-rate { display: flex; gap: 5px; }
+    .star-rate .star {
+      font-size: 26px; cursor: pointer; color: var(--bdr);
+      transition: color var(--tr), transform .15s ease;
+      user-select: none; line-height: 1;
+    }
+    .star-rate .star.on,
+    .star-rate .star.hov { color: var(--star); }
+    .star-rate .star:hover { transform: scale(1.18); }
+
+    /* ── TOGGLE ── */
+    .tog-wrap { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .tog-in { display: none; }
+    .tog-sl {
+      width: 44px; height: 24px; background: var(--bdr);
+      border-radius: 12px; position: relative; flex-shrink: 0;
+      transition: background var(--tr);
+    }
+    .tog-sl::after {
+      content: ''; position: absolute;
+      width: 18px; height: 18px; background: #fff;
+      border-radius: 50%; top: 3px; left: 3px;
+      transition: transform var(--tr);
+      box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    }
+    .tog-in:checked + .tog-sl { background: var(--pr); }
+    .tog-in:checked + .tog-sl::after { transform: translateX(20px); }
+    .tog-lbl { font-size: 14px; }
+
+    /* ── BUTTONS ── */
+    .btn-pr {
+      background: var(--pr); color: #fff; border: none;
+      border-radius: var(--rad-s); padding: 11px 20px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: background var(--tr);
+    }
+    .btn-pr:hover { background: var(--pr-hov); }
+    .btn-sec {
+      background: var(--surf2); color: var(--txt);
+      border: 1.5px solid var(--bdr);
+      border-radius: var(--rad-s); padding: 11px 20px;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      transition: background var(--tr);
+    }
+    .btn-sec:hover { background: var(--bdr); }
+    .btn-dan {
+      background: var(--dan); color: #fff; border: none;
+      border-radius: var(--rad-s); padding: 11px 20px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: background var(--tr);
+    }
+    .btn-dan:hover { background: var(--dan-hov); }
+
+    /* ── DELETE MODAL ── */
+    .del-msg {
+      font-size: 14px; color: var(--txt2); line-height: 1.7;
+      text-align: center; margin-bottom: 18px;
+    }
+    .del-book-name {
+      font-weight: 700; color: var(--txt); display: block; margin-top: 4px;
+    }
+
+    /* ── STATS ── */
+    .stats-wrap { display: flex; flex-direction: column; gap: 14px; padding-bottom: 14px; }
+    .stat-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+    }
+    @media (max-width: 340px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+    .stat-card {
+      background: var(--surf); border: 1px solid var(--bdr);
+      border-radius: var(--rad); padding: 14px 8px;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      box-shadow: var(--sh);
+    }
+    .stat-num { font-size: 26px; font-weight: 800; color: var(--pr); line-height: 1; }
+    .stat-lbl { font-size: 11px; color: var(--txt2); font-weight: 500; }
+    .chart-card {
+      background: var(--surf); border: 1px solid var(--bdr);
+      border-radius: var(--rad); padding: 16px;
+      box-shadow: var(--sh);
+    }
+    .chart-title { font-size: 13px; font-weight: 700; margin-bottom: 14px; color: var(--txt); }
+    .chart-rows { display: flex; flex-direction: column; gap: 7px; }
+    .chart-row { display: flex; align-items: center; gap: 8px; }
+    .chart-lbl { font-size: 11px; color: var(--txt2); width: 42px; flex-shrink: 0; text-align: right; }
+    .chart-track {
+      flex: 1; height: 14px; background: var(--surf2);
+      border-radius: 7px; overflow: hidden; border: 1px solid var(--bdr);
+    }
+    .chart-fill {
+      height: 100%; background: var(--pr);
+      border-radius: 7px; min-width: 0;
+      transition: width .6s cubic-bezier(.4,0,.2,1);
+    }
+    .chart-fill.cat { background: linear-gradient(90deg, var(--pr), #818cf8); }
+    .chart-num { font-size: 11px; color: var(--txt2); width: 18px; text-align: right; font-weight: 600; }
+    .no-data { font-size: 13px; color: var(--txt3); text-align: center; padding: 16px; }
+
+    /* ── SETTINGS ── */
+    .settings-wrap { display: flex; flex-direction: column; gap: 14px; padding-bottom: 14px; }
+    .settings-sect {
+      background: var(--surf); border: 1px solid var(--bdr);
+      border-radius: var(--rad); overflow: hidden; box-shadow: var(--sh);
+    }
+    .sect-title {
+      font-size: 11px; font-weight: 700; color: var(--txt3);
+      text-transform: uppercase; letter-spacing: .06em;
+      padding: 12px 16px 6px;
+    }
+    .sett-item {
+      display: flex; align-items: center; gap: 13px;
+      padding: 14px 16px;
+      background: none; border: none; border-top: 1px solid var(--bdr);
+      color: var(--txt); cursor: pointer; width: 100%;
+      text-align: left; text-decoration: none;
+      transition: background var(--tr);
+    }
+    .sett-item:first-of-type { border-top: none; }
+    .sett-item:hover:not(.no-hover) { background: var(--surf2); }
+    .sett-icon { font-size: 18px; flex-shrink: 0; }
+    .sett-info { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+    .sett-name { font-size: 14px; font-weight: 500; }
+    .sett-desc { font-size: 12px; color: var(--txt2); }
+    .sett-chev { font-size: 20px; color: var(--txt3); font-weight: 300; }
+    .sett-item.danger .sett-name { color: var(--dan); }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed; bottom: calc(var(--nh) + 14px);
+      left: 50%; transform: translateX(-50%) translateY(6px);
+      background: #1e293b; color: #fff;
+      padding: 10px 18px; border-radius: 24px;
+      font-size: 13px; font-weight: 500; z-index: 400;
+      opacity: 0; pointer-events: none; white-space: nowrap;
+      box-shadow: var(--sh-lg);
+      transition: opacity .25s ease, transform .25s ease;
+    }
+    [data-theme="dark"] .toast { background: #f1f5f9; color: #1e293b; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── UTILITIES ── */
+    .hidden { display: none !important; }
+    input[type="file"].hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Install Banner -->
+  <div id="installBanner" class="install-banner hidden">
+    <span>홈 화면에 추가하면 더 편리해요!</span>
+    <button class="ibtn" id="installBtn">설치</button>
+    <button class="idismiss" id="dismissInstall">✕</button>
+  </div>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="app-logo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+      </svg>
+      Book Tracker
+    </div>
+    <div class="hdr-right">
+      <button class="theme-btn" id="themeToggle" aria-label="테마 변경">🌙</button>
+      <button class="add-btn" id="addBookBtn">+ 책 추가</button>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="main-wrap">
+
+    <!-- LIST TAB -->
+    <section class="tab-pane active" data-tab="list" id="tab-list">
+      <div class="search-box">
+        <span class="search-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+        </span>
+        <input type="search" class="search-input" id="searchInput" placeholder="제목 또는 저자 검색..." autocomplete="off">
+      </div>
+      <div class="filter-row">
+        <select class="flt" id="filterCategory">
+          <option value="">전체 카테고리</option>
+          <option value="소설">소설</option>
+          <option value="경제경영">경제경영</option>
+          <option value="자기계발">자기계발</option>
+          <option value="기술IT">기술 IT</option>
+          <option value="역사철학">역사/철학</option>
+          <option value="과학">과학</option>
+          <option value="에세이">에세이</option>
+          <option value="기타">기타</option>
+        </select>
+        <select class="flt" id="filterStatus">
+          <option value="">전체 상태</option>
+          <option value="읽는중">읽는중</option>
+          <option value="완독">완독</option>
+          <option value="중단">중단</option>
+        </select>
+        <select class="flt" id="filterWantToBuy">
+          <option value="">구매희망 전체</option>
+          <option value="true">구매희망</option>
+          <option value="false">해당없음</option>
+        </select>
+        <select class="flt" id="sortBy">
+          <option value="latest">최신순</option>
+          <option value="rating">별점순</option>
+          <option value="title">제목순</option>
+        </select>
+      </div>
+      <p class="list-meta" id="listMeta"></p>
+      <div class="book-grid" id="bookGrid"></div>
+      <div class="empty-state hidden" id="emptyState">
+        <div class="empty-icon">📚</div>
+        <p>아직 등록된 책이 없어요</p>
+        <button class="btn-pr" id="emptyAddBtn">첫 책 추가하기</button>
+      </div>
+    </section>
+
+    <!-- STATS TAB -->
+    <section class="tab-pane" data-tab="stats" id="tab-stats">
+      <div class="stats-wrap">
+        <div class="stat-grid">
+          <div class="stat-card">
+            <span class="stat-num" id="statTotal">0</span>
+            <span class="stat-lbl">전체</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-num" id="statReading">0</span>
+            <span class="stat-lbl">읽는중</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-num" id="statDone">0</span>
+            <span class="stat-lbl">완독</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-num" id="statAvg">-</span>
+            <span class="stat-lbl">평균별점</span>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h3 class="chart-title">월별 완독 현황 (최근 12개월)</h3>
+          <div class="chart-rows" id="monthlyChart"></div>
+        </div>
+
+        <div class="chart-card">
+          <h3 class="chart-title">카테고리 분포</h3>
+          <div class="chart-rows" id="categoryChart"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS TAB -->
+    <section class="tab-pane" data-tab="settings" id="tab-settings">
+      <div class="settings-wrap">
+
+        <div class="settings-sect">
+          <p class="sect-title">데이터 내보내기</p>
+          <button class="sett-item" id="btnExportCSV">
+            <span class="sett-icon">📊</span>
+            <div class="sett-info">
+              <span class="sett-name">CSV 내보내기</span>
+              <span class="sett-desc">엑셀 / 스프레드시트용</span>
+            </div>
+            <span class="sett-chev">›</span>
+          </button>
+          <button class="sett-item" id="btnExportJSON">
+            <span class="sett-icon">💾</span>
+            <div class="sett-info">
+              <span class="sett-name">JSON 내보내기</span>
+              <span class="sett-desc">기기 이전용 백업 파일</span>
+            </div>
+            <span class="sett-chev">›</span>
+          </button>
+        </div>
+
+        <div class="settings-sect">
+          <p class="sect-title">데이터 불러오기</p>
+          <button class="sett-item" id="btnImportJSON">
+            <span class="sett-icon">📂</span>
+            <div class="sett-info">
+              <span class="sett-name">JSON 불러오기</span>
+              <span class="sett-desc">백업 파일에서 복원</span>
+            </div>
+            <span class="sett-chev">›</span>
+          </button>
+          <input type="file" id="importFile" accept=".json" class="hidden">
+        </div>
+
+        <div class="settings-sect">
+          <p class="sect-title">앱 정보</p>
+          <div class="sett-item no-hover">
+            <span class="sett-icon">📱</span>
+            <div class="sett-info">
+              <span class="sett-name">Book Tracker</span>
+              <span class="sett-desc">v1.0.0 · PWA</span>
+            </div>
+          </div>
+          <div class="sett-item no-hover">
+            <span class="sett-icon">🗂️</span>
+            <div class="sett-info">
+              <span class="sett-name">저장된 데이터</span>
+              <span class="sett-desc" id="storageInfo">0권 저장됨</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-sect">
+          <p class="sect-title">위험 구역</p>
+          <button class="sett-item danger" id="btnClearData">
+            <span class="sett-icon">🗑️</span>
+            <div class="sett-info">
+              <span class="sett-name">전체 데이터 삭제</span>
+              <span class="sett-desc">되돌릴 수 없습니다</span>
+            </div>
+            <span class="sett-chev">›</span>
+          </button>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom Nav -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-tab="list" id="nav-list">
+      <span class="nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+      </span>
+      <span class="nav-lbl">목록</span>
+    </button>
+    <button class="nav-btn" data-tab="stats" id="nav-stats">
+      <span class="nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>
+        </svg>
+      </span>
+      <span class="nav-lbl">통계</span>
+    </button>
+    <button class="nav-btn" data-tab="settings" id="nav-settings">
+      <span class="nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </span>
+      <span class="nav-lbl">설정</span>
+    </button>
+  </nav>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay hidden" id="modal">
+    <div class="modal-box">
+      <div class="modal-hdr">
+        <h2 class="modal-title" id="modalTitle">책 추가</h2>
+        <button class="modal-close" id="closeModal" aria-label="닫기">✕</button>
+      </div>
+      <form class="book-form" id="bookForm" novalidate>
+        <div class="fg">
+          <label class="flbl" for="fTitle">제목 <span class="req">*</span></label>
+          <input type="text" class="finput" id="fTitle" placeholder="책 제목을 입력하세요" autocomplete="off">
+        </div>
+        <div class="fr">
+          <div class="fg">
+            <label class="flbl" for="fAuthor">저자</label>
+            <input type="text" class="finput" id="fAuthor" placeholder="저자" autocomplete="off">
+          </div>
+          <div class="fg">
+            <label class="flbl" for="fPublisher">출판사</label>
+            <input type="text" class="finput" id="fPublisher" placeholder="출판사" autocomplete="off">
+          </div>
+        </div>
+        <div class="fr">
+          <div class="fg">
+            <label class="flbl" for="fCategory">카테고리</label>
+            <select class="finput" id="fCategory">
+              <option value="">선택 안 함</option>
+              <option value="소설">소설</option>
+              <option value="경제경영">경제경영</option>
+              <option value="자기계발">자기계발</option>
+              <option value="기술IT">기술 IT</option>
+              <option value="역사철학">역사/철학</option>
+              <option value="과학">과학</option>
+              <option value="에세이">에세이</option>
+              <option value="기타">기타</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="flbl" for="fStatus">독서 상태</label>
+            <select class="finput" id="fStatus">
+              <option value="읽는중">읽는중</option>
+              <option value="완독">완독</option>
+              <option value="중단">중단</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="flbl" for="fFinishDate">완독일</label>
+          <input type="date" class="finput" id="fFinishDate">
+        </div>
+        <div class="fg">
+          <label class="flbl">별점</label>
+          <div class="star-rate" id="starRating">
+            <span class="star" data-v="1">★</span>
+            <span class="star" data-v="2">★</span>
+            <span class="star" data-v="3">★</span>
+            <span class="star" data-v="4">★</span>
+            <span class="star" data-v="5">★</span>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="flbl">구매 희망</label>
+          <label class="tog-wrap">
+            <input type="checkbox" class="tog-in" id="fWantToBuy">
+            <span class="tog-sl"></span>
+            <span class="tog-lbl">구매하고 싶어요 🛒</span>
+          </label>
+        </div>
+        <div class="fg">
+          <label class="flbl" for="fReview">감상평</label>
+          <textarea class="finput" id="fReview" placeholder="책에 대한 감상을 자유롭게 적어보세요..."></textarea>
+        </div>
+        <div class="form-acts">
+          <button type="button" class="btn-sec" id="cancelModal">취소</button>
+          <button type="submit" class="btn-pr" id="submitBtn">저장하기</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div class="modal-overlay hidden" id="deleteModal">
+    <div class="modal-box modal-box-sm">
+      <div class="modal-hdr">
+        <h2 class="modal-title">책 삭제</h2>
+        <button class="modal-close" id="closeDeleteModal" aria-label="닫기">✕</button>
+      </div>
+      <p class="del-msg">
+        이 책을 삭제하시겠어요?<br>
+        <span class="del-book-name" id="delBookName"></span>
+        <small style="color:var(--txt3);font-size:12px;display:block;margin-top:6px">삭제 후 복구할 수 없습니다.</small>
+      </p>
+      <div class="form-acts">
+        <button class="btn-sec" id="cancelDelete">취소</button>
+        <button class="btn-dan" id="confirmDeleteBtn">삭제</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast hidden" id="toast"></div>
+
+  <script>
+  'use strict';
+
+  // ═══════════════════════════════
+  //  STATE
+  // ═══════════════════════════════
+  let books = [];
+  let editingId = null;
+  let deleteId = null;
+  let currentRating = 0;
+  let currentTab = 'list';
+  let deferredPrompt = null;
+
+  // ═══════════════════════════════
+  //  INIT
+  // ═══════════════════════════════
+  document.addEventListener('DOMContentLoaded', () => {
+    loadBooks();
+    applyTheme();
+    renderBooks();
+    setupEvents();
+    registerSW();
+  });
+
+  // ═══════════════════════════════
+  //  STORAGE
+  // ═══════════════════════════════
+  function loadBooks() {
+    try {
+      const raw = localStorage.getItem('booktracker_v1');
+      books = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(books)) books = [];
+    } catch { books = []; }
+  }
+
+  function saveBooks() {
+    localStorage.setItem('booktracker_v1', JSON.stringify(books));
+  }
+
+  // ═══════════════════════════════
+  //  CRUD
+  // ═══════════════════════════════
+  function createBook(data) {
+    books.unshift({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      createdAt: new Date().toISOString(),
+      ...data
+    });
+    saveBooks();
+  }
+
+  function updateBook(id, data) {
+    const i = books.findIndex(b => b.id === id);
+    if (i >= 0) { books[i] = { ...books[i], ...data, updatedAt: new Date().toISOString() }; saveBooks(); }
+  }
+
+  function removeBook(id) {
+    books = books.filter(b => b.id !== id);
+    saveBooks();
+  }
+
+  // ═══════════════════════════════
+  //  FILTER & SORT
+  // ═══════════════════════════════
+  function getFiltered() {
+    const q   = g('searchInput').value.trim().toLowerCase();
+    const cat = g('filterCategory').value;
+    const st  = g('filterStatus').value;
+    const wtb = g('filterWantToBuy').value;
+    const srt = g('sortBy').value;
+
+    let r = books.filter(b => {
+      if (q && !b.title?.toLowerCase().includes(q) && !b.author?.toLowerCase().includes(q)) return false;
+      if (cat && b.category !== cat) return false;
+      if (st && b.status !== st) return false;
+      if (wtb === 'true'  && !b.wantToBuy) return false;
+      if (wtb === 'false' &&  b.wantToBuy) return false;
+      return true;
+    });
+
+    r.sort((a, b) => {
+      if (srt === 'latest') return new Date(b.createdAt||0) - new Date(a.createdAt||0);
+      if (srt === 'rating') return (b.rating||0) - (a.rating||0);
+      if (srt === 'title')  return (a.title||'').localeCompare(b.title||'', 'ko');
+      return 0;
+    });
+    return r;
+  }
+
+  // ═══════════════════════════════
+  //  RENDER LIST
+  // ═══════════════════════════════
+  function renderBooks() {
+    const filtered = getFiltered();
+    const grid  = g('bookGrid');
+    const empty = g('emptyState');
+    const meta  = g('listMeta');
+
+    if (filtered.length === 0) {
+      grid.innerHTML = '';
+      empty.classList.remove('hidden');
+      meta.textContent = books.length ? '검색 결과가 없어요' : '';
+      return;
+    }
+    empty.classList.add('hidden');
+    meta.textContent = `${filtered.length}권`;
+    grid.innerHTML = filtered.map(bookCard).join('');
+  }
+
+  function bookCard(b) {
+    const sMap = { '읽는중':'reading', '완독':'done', '중단':'stopped' };
+    const sCls = sMap[b.status] || 'stopped';
+    const stars = Array.from({length:5}, (_,i) =>
+      `<span class="star-sm ${i < (b.rating||0) ? 'filled':''}">${i < (b.rating||0) ? '★':'☆'}</span>`
+    ).join('');
+    const sub = [b.author, b.publisher].filter(Boolean).map(esc).join(' · ');
+    const review = b.review ? esc(b.review.slice(0,65)) + (b.review.length>65?'…':'') : '';
+    return `
+<article class="book-card" data-id="${b.id}" tabindex="0" role="button" aria-label="${esc(b.title)} 수정">
+  <div class="card-top">
+    <div class="card-badges">
+      ${b.category ? `<span class="badge badge-cat">${esc(b.category)}</span>` : ''}
+      <span class="badge badge-${sCls}">${esc(b.status||'')}</span>
+    </div>
+    <div class="card-acts" data-stop>
+      ${b.wantToBuy ? '<span class="want-icon" title="구매희망">🛒</span>' : ''}
+      <button class="del-btn" data-del="${b.id}" aria-label="삭제">✕</button>
+    </div>
+  </div>
+  <h3 class="card-title">${esc(b.title)}</h3>
+  ${sub ? `<p class="card-sub">${sub}</p>` : ''}
+  <div class="card-bot">
+    <div class="stars-sm">${stars}</div>
+    ${b.finishDate ? `<span class="card-date">${fmtDate(b.finishDate)}</span>` : ''}
+  </div>
+  ${review ? `<p class="card-review">${review}</p>` : ''}
+</article>`;
+  }
+
+  // ═══════════════════════════════
+  //  STATS
+  // ═══════════════════════════════
+  function renderStats() {
+    const total   = books.length;
+    const reading = books.filter(b => b.status === '읽는중').length;
+    const done    = books.filter(b => b.status === '완독').length;
+    const rated   = books.filter(b => b.rating > 0);
+    const avg     = rated.length
+      ? (rated.reduce((s, b) => s + b.rating, 0) / rated.length).toFixed(1)
+      : '-';
+
+    setText('statTotal',   total);
+    setText('statReading', reading);
+    setText('statDone',    done);
+    setText('statAvg',     avg);
+
+    renderMonthlyChart();
+    renderCatChart();
+  }
+
+  function renderMonthlyChart() {
+    const el = g('monthlyChart');
+    if (!el) return;
+    const now = new Date();
+    const months = Array.from({length:12}, (_,i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
+      return { y: d.getFullYear(), m: d.getMonth()+1,
+               lbl: `${String(d.getFullYear()).slice(2)}.${String(d.getMonth()+1).padStart(2,'0')}`,
+               cnt: 0 };
+    });
+    books.forEach(b => {
+      if (b.status === '완독' && b.finishDate) {
+        const d = new Date(b.finishDate);
+        const mo = months.find(m => m.y === d.getFullYear() && m.m === d.getMonth()+1);
+        if (mo) mo.cnt++;
+      }
+    });
+    const max = Math.max(...months.map(m => m.cnt), 1);
+    el.innerHTML = months.map(m => `
+<div class="chart-row">
+  <span class="chart-lbl">${m.lbl}</span>
+  <div class="chart-track"><div class="chart-fill" style="width:${Math.round(m.cnt/max*100)}%"></div></div>
+  <span class="chart-num">${m.cnt}</span>
+</div>`).join('');
+  }
+
+  function renderCatChart() {
+    const el = g('categoryChart');
+    if (!el) return;
+    const cats = ['소설','경제경영','자기계발','기술IT','역사철학','과학','에세이','기타'];
+    const data = cats.map(c => ({ name: c, cnt: books.filter(b => b.category === c).length }))
+                     .filter(c => c.cnt > 0).sort((a,b) => b.cnt - a.cnt);
+    if (!data.length) { el.innerHTML = '<p class="no-data">카테고리 데이터 없음</p>'; return; }
+    const max = Math.max(...data.map(c => c.cnt));
+    el.innerHTML = data.map(c => `
+<div class="chart-row">
+  <span class="chart-lbl">${c.name}</span>
+  <div class="chart-track"><div class="chart-fill cat" style="width:${Math.round(c.cnt/max*100)}%"></div></div>
+  <span class="chart-num">${c.cnt}</span>
+</div>`).join('');
+  }
+
+  // ═══════════════════════════════
+  //  MODAL (Add/Edit)
+  // ═══════════════════════════════
+  function openModal(id = null) {
+    editingId = id;
+    g('bookForm').reset();
+    setRating(0);
+
+    if (id) {
+      const b = books.find(b => b.id === id);
+      if (!b) return;
+      setText('modalTitle', '책 수정');
+      setVal('fTitle',      b.title      || '');
+      setVal('fAuthor',     b.author     || '');
+      setVal('fPublisher',  b.publisher  || '');
+      setVal('fCategory',   b.category   || '');
+      setVal('fStatus',     b.status     || '읽는중');
+      setVal('fFinishDate', b.finishDate || '');
+      g('fWantToBuy').checked = !!b.wantToBuy;
+      setVal('fReview', b.review || '');
+      setRating(b.rating || 0);
+    } else {
+      setText('modalTitle', '책 추가');
+    }
+
+    g('modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => g('fTitle')?.focus());
+  }
+
+  function closeModal() {
+    g('modal').classList.add('hidden');
+    document.body.style.overflow = '';
+    editingId = null;
+  }
+
+  function submitForm(e) {
+    e.preventDefault();
+    const title = g('fTitle').value.trim();
+    if (!title) { showToast('제목을 입력해주세요'); g('fTitle').focus(); return; }
+
+    const data = {
+      title,
+      author:      g('fAuthor').value.trim(),
+      publisher:   g('fPublisher').value.trim(),
+      category:    g('fCategory').value,
+      status:      g('fStatus').value,
+      finishDate:  g('fFinishDate').value,
+      rating:      currentRating,
+      wantToBuy:   g('fWantToBuy').checked,
+      review:      g('fReview').value.trim()
+    };
+
+    if (editingId) { updateBook(editingId, data); showToast('수정되었어요 ✓'); }
+    else           { createBook(data);            showToast('추가되었어요 ✓'); }
+
+    closeModal();
+    renderBooks();
+    updateStorageInfo();
+    if (currentTab === 'stats') renderStats();
+  }
+
+  // ═══════════════════════════════
+  //  STAR RATING
+  // ═══════════════════════════════
+  function setRating(v) {
+    currentRating = v;
+    document.querySelectorAll('#starRating .star').forEach((s, i) => {
+      s.classList.toggle('on', i < v);
+      s.classList.remove('hov');
+    });
+  }
+
+  // ═══════════════════════════════
+  //  DELETE MODAL
+  // ═══════════════════════════════
+  function openDeleteModal(id) {
+    const b = books.find(b => b.id === id);
+    deleteId = id;
+    setText('delBookName', b ? b.title : '');
+    g('deleteModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDeleteModal() {
+    g('deleteModal').classList.add('hidden');
+    document.body.style.overflow = '';
+    deleteId = null;
+  }
+
+  function confirmDelete() {
+    if (!deleteId) return;
+    removeBook(deleteId);
+    closeDeleteModal();
+    renderBooks();
+    updateStorageInfo();
+    if (currentTab === 'stats') renderStats();
+    showToast('삭제되었어요');
+  }
+
+  // ═══════════════════════════════
+  //  TAB
+  // ═══════════════════════════════
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.tab === tab));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    if (tab === 'stats')    renderStats();
+    if (tab === 'settings') updateStorageInfo();
+  }
+
+  // ═══════════════════════════════
+  //  THEME
+  // ═══════════════════════════════
+  function applyTheme() {
+    const saved = localStorage.getItem('booktracker_theme');
+    const dark  = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    g('themeToggle').textContent = dark ? '☀️' : '🌙';
+  }
+
+  function toggleTheme() {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+    localStorage.setItem('booktracker_theme', dark ? 'light' : 'dark');
+    g('themeToggle').textContent = dark ? '🌙' : '☀️';
+  }
+
+  // ═══════════════════════════════
+  //  EXPORT / IMPORT
+  // ═══════════════════════════════
+  function exportCSV() {
+    if (!books.length) { showToast('저장된 책이 없어요'); return; }
+    const H = ['제목','저자','출판사','카테고리','상태','완독일','별점','구매희망','감상평','등록일'];
+    const rows = books.map(b => [
+      b.title, b.author, b.publisher, b.category, b.status,
+      b.finishDate, b.rating||'', b.wantToBuy?'O':'X',
+      (b.review||'').replace(/"/g,'""'),
+      b.createdAt ? new Date(b.createdAt).toLocaleDateString('ko-KR') : ''
+    ].map(v => `"${v||''}"`).join(','));
+    const csv = '\uFEFF' + [H.map(v=>`"${v}"`).join(','), ...rows].join('\n');
+    dlFile(csv, `book-tracker-${today()}.csv`, 'text/csv;charset=utf-8;');
+    showToast('CSV 파일을 저장했어요 ✓');
+  }
+
+  function exportJSON() {
+    if (!books.length) { showToast('저장된 책이 없어요'); return; }
+    dlFile(
+      JSON.stringify({ version:'1.0', exportedAt: new Date().toISOString(), books }, null, 2),
+      `book-tracker-${today()}.json`,
+      'application/json'
+    );
+    showToast('JSON 백업 파일을 저장했어요 ✓');
+  }
+
+  function importJSON(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        const imported = Array.isArray(parsed) ? parsed : (parsed.books || []);
+        if (!Array.isArray(imported) || !imported.length) throw new Error('empty');
+
+        const existIds = new Set(books.map(b => b.id));
+        const newOnes  = imported.filter(b => b.title !== undefined && !existIds.has(b.id));
+
+        if (confirm(`${imported.length}권을 불러올까요?\n중복 제외 ${newOnes.length}권이 추가됩니다.`)) {
+          books = [...newOnes, ...books];
+          saveBooks();
+          renderBooks();
+          updateStorageInfo();
+          showToast(`${newOnes.length}권을 불러왔어요 ✓`);
+        }
+      } catch { showToast('파일 형식이 올바르지 않아요'); }
+      e.target.value = '';
+    };
+    reader.readAsText(file, 'utf-8');
+  }
+
+  function clearAllData() {
+    if (!books.length) { showToast('저장된 데이터가 없어요'); return; }
+    if (confirm(`책 ${books.length}권을 모두 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) {
+      books = [];
+      saveBooks();
+      renderBooks();
+      updateStorageInfo();
+      showToast('전체 데이터를 삭제했어요');
+    }
+  }
+
+  function updateStorageInfo() {
+    setText('storageInfo', `${books.length}권 저장됨`);
+  }
+
+  // ═══════════════════════════════
+  //  TOAST
+  // ═══════════════════════════════
+  let _toastTimer;
+  function showToast(msg) {
+    const t = g('toast');
+    clearTimeout(_toastTimer);
+    t.textContent = msg;
+    t.classList.remove('hidden');
+    requestAnimationFrame(() => t.classList.add('show'));
+    _toastTimer = setTimeout(() => {
+      t.classList.remove('show');
+      setTimeout(() => t.classList.add('hidden'), 280);
+    }, 2500);
+  }
+
+  // ═══════════════════════════════
+  //  EVENT LISTENERS
+  // ═══════════════════════════════
+  function setupEvents() {
+    // Header
+    g('themeToggle').addEventListener('click', toggleTheme);
+    g('addBookBtn').addEventListener('click', () => openModal());
+
+    // List controls
+    g('searchInput').addEventListener('input', renderBooks);
+    g('filterCategory').addEventListener('change', renderBooks);
+    g('filterStatus').addEventListener('change', renderBooks);
+    g('filterWantToBuy').addEventListener('change', renderBooks);
+    g('sortBy').addEventListener('change', renderBooks);
+
+    // Empty state add button
+    g('emptyAddBtn').addEventListener('click', () => openModal());
+
+    // Book grid (event delegation)
+    g('bookGrid').addEventListener('click', e => {
+      const del  = e.target.closest('[data-del]');
+      const stop = e.target.closest('[data-stop]');
+      if (del)  { e.stopPropagation(); openDeleteModal(del.dataset.del); return; }
+      if (stop) { e.stopPropagation(); return; }
+      const card = e.target.closest('.book-card');
+      if (card) openModal(card.dataset.id);
+    });
+    g('bookGrid').addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        const card = e.target.closest('.book-card');
+        if (card) { e.preventDefault(); openModal(card.dataset.id); }
+      }
+    });
+
+    // Modal
+    g('bookForm').addEventListener('submit', submitForm);
+    g('modal').addEventListener('click', e => { if (e.target === g('modal')) closeModal(); });
+    g('closeModal').addEventListener('click', closeModal);
+    g('cancelModal').addEventListener('click', closeModal);
+
+    // Delete modal
+    g('deleteModal').addEventListener('click', e => { if (e.target === g('deleteModal')) closeDeleteModal(); });
+    g('closeDeleteModal').addEventListener('click', closeDeleteModal);
+    g('cancelDelete').addEventListener('click', closeDeleteModal);
+    g('confirmDeleteBtn').addEventListener('click', confirmDelete);
+
+    // Stars
+    document.querySelectorAll('#starRating .star').forEach(star => {
+      star.addEventListener('click', () => setRating(+star.dataset.v));
+      star.addEventListener('mouseover', () => {
+        document.querySelectorAll('#starRating .star').forEach((s, i) =>
+          s.classList.toggle('hov', i < +star.dataset.v)
+        );
+      });
+      star.addEventListener('mouseout', () => {
+        document.querySelectorAll('#starRating .star').forEach(s => s.classList.remove('hov'));
+      });
+    });
+
+    // Nav
+    document.querySelectorAll('.nav-btn').forEach(btn =>
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab))
+    );
+
+    // Settings
+    g('btnExportCSV').addEventListener('click', exportCSV);
+    g('btnExportJSON').addEventListener('click', exportJSON);
+    g('btnImportJSON').addEventListener('click', () => g('importFile').click());
+    g('importFile').addEventListener('change', importJSON);
+    g('btnClearData').addEventListener('click', clearAllData);
+
+    // Install banner
+    g('dismissInstall').addEventListener('click', () => g('installBanner').classList.add('hidden'));
+    g('installBtn').addEventListener('click', installApp);
+
+    // ESC
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeModal(); closeDeleteModal(); }
+    });
+  }
+
+  // ═══════════════════════════════
+  //  PWA
+  // ═══════════════════════════════
+  function registerSW() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/book-tracker/sw.js')
+        .then(r => console.log('SW registered:', r.scope))
+        .catch(err => console.warn('SW registration failed:', err));
+    }
+  }
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    g('installBanner').classList.remove('hidden');
+  });
+
+  function installApp() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => {
+      deferredPrompt = null;
+      g('installBanner').classList.add('hidden');
+    });
+  }
+
+  window.addEventListener('appinstalled', () => {
+    g('installBanner').classList.add('hidden');
+    showToast('앱이 설치되었어요!');
+  });
+
+  // ═══════════════════════════════
+  //  HELPERS
+  // ═══════════════════════════════
+  const g = id => document.getElementById(id);
+  const setText = (id, v) => { const el = g(id); if (el) el.textContent = v; };
+  const setVal  = (id, v) => { const el = g(id); if (el) el.value = v; };
+  function esc(s) {
+    return String(s||'')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function fmtDate(s) {
+    if (!s) return '';
+    const [y,m,d] = s.split('-');
+    return `${y}.${m}.${d}`;
+  }
+  function today() {
+    const d = new Date();
+    return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function dlFile(content, name, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], { type }));
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  </script>
+</body>
+</html>

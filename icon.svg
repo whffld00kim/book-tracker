@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="42" fill="url(#g1)"/>
+  <!-- Book shadow -->
+  <rect x="50" y="46" width="96" height="112" rx="8" fill="rgba(0,0,0,0.18)"/>
+  <!-- Book body -->
+  <rect x="46" y="42" width="96" height="112" rx="8" fill="#fff"/>
+  <!-- Spine -->
+  <rect x="46" y="42" width="14" height="112" rx="6" fill="#c7d2fe"/>
+  <!-- Text lines -->
+  <rect x="70" y="66" width="56" height="6" rx="3" fill="#6366f1" opacity="0.55"/>
+  <rect x="70" y="80" width="52" height="4" rx="2" fill="#94a3b8" opacity="0.65"/>
+  <rect x="70" y="92" width="56" height="4" rx="2" fill="#94a3b8" opacity="0.65"/>
+  <rect x="70" y="104" width="40" height="4" rx="2" fill="#94a3b8" opacity="0.65"/>
+  <rect x="70" y="116" width="48" height="4" rx="2" fill="#94a3b8" opacity="0.5"/>
+  <!-- Bookmark -->
+  <path d="M110 42 L110 88 L122 78 L134 88 L134 42 Z" fill="#f97316"/>
+</svg>

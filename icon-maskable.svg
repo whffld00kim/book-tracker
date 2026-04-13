@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+  </defs>
+  <!-- Full background for maskable -->
+  <rect width="512" height="512" fill="url(#g2)"/>
+  <!-- Content within safe zone (80% of 512 = 102px padding) -->
+  <!-- Book shadow -->
+  <rect x="140" y="126" width="240" height="280" rx="18" fill="rgba(0,0,0,0.18)"/>
+  <!-- Book body -->
+  <rect x="132" y="118" width="240" height="280" rx="18" fill="#fff"/>
+  <!-- Spine -->
+  <rect x="132" y="118" width="36" height="280" rx="12" fill="#c7d2fe"/>
+  <!-- Text lines -->
+  <rect x="184" y="172" width="140" height="15" rx="7" fill="#6366f1" opacity="0.55"/>
+  <rect x="184" y="202" width="130" height="10" rx="5" fill="#94a3b8" opacity="0.65"/>
+  <rect x="184" y="226" width="140" height="10" rx="5" fill="#94a3b8" opacity="0.65"/>
+  <rect x="184" y="250" width="100" height="10" rx="5" fill="#94a3b8" opacity="0.65"/>
+  <rect x="184" y="274" width="118" height="10" rx="5" fill="#94a3b8" opacity="0.5"/>
+  <rect x="184" y="298" width="90" height="10" rx="5" fill="#94a3b8" opacity="0.4"/>
+  <!-- Bookmark -->
+  <path d="M288 118 L288 224 L316 202 L344 224 L344 118 Z" fill="#f97316"/>
+</svg>
