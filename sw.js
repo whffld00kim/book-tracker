@@ -1,4 +1,4 @@
-const CACHE = 'book-tracker-v1';
+const CACHE = 'book-tracker-v2';
 const ASSETS = [
   '/book-tracker/',
   '/book-tracker/index.html',

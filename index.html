@@ -191,7 +191,19 @@
     [data-theme="dark"] .badge-done { background: #14532d; color: #4ade80; }
     [data-theme="dark"] .badge-stopped { background: #273449; color: #94a3b8; }
     .card-acts { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-    .want-icon { font-size: 13px; }
+    .buy-badge {
+      font-size: 10px; font-weight: 700;
+      padding: 3px 8px; border-radius: 20px;
+      border: none; cursor: pointer; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 2px;
+      transition: filter var(--tr), transform var(--tr);
+    }
+    .buy-badge:hover { filter: brightness(.94); }
+    .buy-badge:active { transform: scale(.93); }
+    .buy-badge.want { background: #fef3c7; color: #d97706; }
+    .buy-badge.bought { background: #dcfce7; color: #16a34a; }
+    [data-theme="dark"] .buy-badge.want { background: #422006; color: #fbbf24; }
+    [data-theme="dark"] .buy-badge.bought { background: #14532d; color: #4ade80; }
     .del-btn {
       background: none; border: none;
       color: var(--txt3); font-size: 12px; cursor: pointer;
@@ -399,6 +411,12 @@
     .chart-fill.cat { background: linear-gradient(90deg, var(--pr), #818cf8); }
     .chart-num { font-size: 11px; color: var(--txt2); width: 18px; text-align: right; font-weight: 600; }
     .no-data { font-size: 13px; color: var(--txt3); text-align: center; padding: 16px; }
+    .buy-summary { display: flex; flex-direction: column; gap: 10px; }
+    .buy-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+    .buy-row .lbl { color: var(--txt2); display: flex; align-items: center; gap: 6px; }
+    .buy-row .val { font-weight: 700; }
+    .buy-prog-track { height: 10px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px; overflow: hidden; margin: 2px 0; }
+    .buy-prog-fill { height: 100%; background: linear-gradient(90deg, #22c55e, #4ade80); border-radius: 6px; min-width: 0; transition: width .6s cubic-bezier(.4,0,.2,1); }
 
     /* ── SETTINGS ── */
     .settings-wrap { display: flex; flex-direction: column; gap: 14px; padding-bottom: 14px; }
@@ -503,9 +521,10 @@
           <option value="중단">중단</option>
         </select>
         <select class="flt" id="filterWantToBuy">
-          <option value="">구매희망 전체</option>
-          <option value="true">구매희망</option>
-          <option value="false">해당없음</option>
+          <option value="">구매 전체</option>
+          <option value="want">구매희망(미구매)</option>
+          <option value="purchased">구매완료</option>
+          <option value="none">해당없음</option>
         </select>
         <select class="flt" id="sortBy">
           <option value="latest">최신순</option>
@@ -552,6 +571,11 @@
         <div class="chart-card">
           <h3 class="chart-title">카테고리 분포</h3>
           <div class="chart-rows" id="categoryChart"></div>
+        </div>
+
+        <div class="chart-card">
+          <h3 class="chart-title">구매 희망 현황</h3>
+          <div class="buy-summary" id="buySummary"></div>
         </div>
       </div>
     </section>
@@ -724,6 +748,11 @@
             <span class="tog-sl"></span>
             <span class="tog-lbl">구매하고 싶어요 🛒</span>
           </label>
+          <label class="tog-wrap hidden" id="purchasedRow" style="margin-top:10px">
+            <input type="checkbox" class="tog-in" id="fPurchased">
+            <span class="tog-sl"></span>
+            <span class="tog-lbl">구매 완료했어요 ✅</span>
+          </label>
         </div>
         <div class="fg">
           <label class="flbl" for="fReview">감상평</label>
@@ -834,8 +863,9 @@
       if (q && !b.title?.toLowerCase().includes(q) && !b.author?.toLowerCase().includes(q)) return false;
       if (cat && b.category !== cat) return false;
       if (st && b.status !== st) return false;
-      if (wtb === 'true'  && !b.wantToBuy) return false;
-      if (wtb === 'false' &&  b.wantToBuy) return false;
+      if (wtb === 'want'      && !(b.wantToBuy && !b.purchased)) return false;
+      if (wtb === 'purchased' && !(b.wantToBuy &&  b.purchased)) return false;
+      if (wtb === 'none'      &&   b.wantToBuy) return false;
       return true;
     });
 
@@ -884,7 +914,9 @@
       <span class="badge badge-${sCls}">${esc(b.status||'')}</span>
     </div>
     <div class="card-acts" data-stop>
-      ${b.wantToBuy ? '<span class="want-icon" title="구매희망">🛒</span>' : ''}
+      ${b.wantToBuy ? (b.purchased
+        ? `<button class="buy-badge bought" data-buy="${b.id}" title="구매완료 · 탭하면 해제">✅ 구매완료</button>`
+        : `<button class="buy-badge want" data-buy="${b.id}" title="구매희망 · 탭하면 구매완료">🛒 구매희망</button>`) : ''}
       <button class="del-btn" data-del="${b.id}" aria-label="삭제">✕</button>
     </div>
   </div>
@@ -917,6 +949,24 @@
 
     renderMonthlyChart();
     renderCatChart();
+    renderBuySummary();
+  }
+
+  function renderBuySummary() {
+    const el = g('buySummary');
+    if (!el) return;
+    const want   = books.filter(b => b.wantToBuy);
+    const total  = want.length;
+    const done   = want.filter(b => b.purchased).length;
+    const remain = total - done;
+    if (total === 0) { el.innerHTML = '<p class="no-data">구매희망 도서가 없어요</p>'; return; }
+    const pct = Math.round(done / total * 100);
+    el.innerHTML = `
+<div class="buy-row"><span class="lbl">🛒 구매희망</span><span class="val">${total}권</span></div>
+<div class="buy-row"><span class="lbl">✅ 구매완료</span><span class="val" style="color:#16a34a">${done}권</span></div>
+<div class="buy-row"><span class="lbl">📌 미구매</span><span class="val" style="color:#d97706">${remain}권</span></div>
+<div class="buy-prog-track"><div class="buy-prog-fill" style="width:${pct}%"></div></div>
+<div class="buy-row"><span class="lbl">구매 진행률</span><span class="val">${pct}%</span></div>`;
   }
 
   function renderMonthlyChart() {
@@ -980,12 +1030,14 @@
       setVal('fStatus',     b.status     || '읽는중');
       setVal('fFinishDate', b.finishDate || '');
       g('fWantToBuy').checked = !!b.wantToBuy;
+      g('fPurchased').checked = !!b.purchased;
       setVal('fReview', b.review || '');
       setRating(b.rating || 0);
     } else {
       setText('modalTitle', '책 추가');
     }
 
+    updatePurchasedRow();
     g('modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
     requestAnimationFrame(() => g('fTitle')?.focus());
@@ -1011,6 +1063,7 @@
       finishDate:  g('fFinishDate').value,
       rating:      currentRating,
       wantToBuy:   g('fWantToBuy').checked,
+      purchased:   g('fWantToBuy').checked && g('fPurchased').checked,
       review:      g('fReview').value.trim()
     };
 
@@ -1032,6 +1085,25 @@
       s.classList.toggle('on', i < v);
       s.classList.remove('hov');
     });
+  }
+
+  // ═══════════════════════════════
+  //  PURCHASE STATUS
+  // ═══════════════════════════════
+  function togglePurchased(id) {
+    const b = books.find(b => b.id === id);
+    if (!b) return;
+    const now = !b.purchased;
+    updateBook(id, { purchased: now });
+    renderBooks();
+    if (currentTab === 'stats') renderStats();
+    showToast(now ? '구매완료로 표시했어요 ✅' : '구매희망으로 되돌렸어요');
+  }
+
+  function updatePurchasedRow() {
+    const on = g('fWantToBuy').checked;
+    g('purchasedRow').classList.toggle('hidden', !on);
+    if (!on) g('fPurchased').checked = false;
   }
 
   // ═══════════════════════════════
@@ -1094,10 +1166,10 @@
   // ═══════════════════════════════
   function exportCSV() {
     if (!books.length) { showToast('저장된 책이 없어요'); return; }
-    const H = ['제목','저자','출판사','카테고리','상태','완독일','별점','구매희망','감상평','등록일'];
+    const H = ['제목','저자','출판사','카테고리','상태','완독일','별점','구매희망','구매완료','감상평','등록일'];
     const rows = books.map(b => [
       b.title, b.author, b.publisher, b.category, b.status,
-      b.finishDate, b.rating||'', b.wantToBuy?'O':'X',
+      b.finishDate, b.rating||'', b.wantToBuy?'O':'X', (b.wantToBuy && b.purchased)?'O':'X',
       (b.review||'').replace(/"/g,'""'),
       b.createdAt ? new Date(b.createdAt).toLocaleDateString('ko-KR') : ''
     ].map(v => `"${v||''}"`).join(','));
@@ -1194,8 +1266,10 @@
     // Book grid (event delegation)
     g('bookGrid').addEventListener('click', e => {
       const del  = e.target.closest('[data-del]');
+      const buy  = e.target.closest('[data-buy]');
       const stop = e.target.closest('[data-stop]');
       if (del)  { e.stopPropagation(); openDeleteModal(del.dataset.del); return; }
+      if (buy)  { e.stopPropagation(); togglePurchased(buy.dataset.buy); return; }
       if (stop) { e.stopPropagation(); return; }
       const card = e.target.closest('.book-card');
       if (card) openModal(card.dataset.id);
@@ -1212,6 +1286,7 @@
     g('modal').addEventListener('click', e => { if (e.target === g('modal')) closeModal(); });
     g('closeModal').addEventListener('click', closeModal);
     g('cancelModal').addEventListener('click', closeModal);
+    g('fWantToBuy').addEventListener('change', updatePurchasedRow);
 
     // Delete modal
     g('deleteModal').addEventListener('click', e => { if (e.target === g('deleteModal')) closeDeleteModal(); });
