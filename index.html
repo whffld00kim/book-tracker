@@ -11,6 +11,9 @@
   <link rel="apple-touch-icon" href="/book-tracker/icon.svg">
   <link rel="manifest" href="/book-tracker/manifest.json">
   <title>Book Tracker</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -367,6 +370,30 @@
     }
     .btn-dan:hover { background: var(--dan-hov); }
 
+    /* ── LOGIN (부부가계부와 같은 계정으로 로그인) ── */
+    .login-scr {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--bg); color: var(--txt);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .login-card {
+      width: 100%; max-width: 340px;
+      background: var(--surf); border-radius: var(--rad);
+      box-shadow: var(--sh-lg); padding: 28px 24px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .login-title { font-size: 18px; font-weight: 700; text-align: center; }
+    .login-desc { font-size: 13px; color: var(--txt2); text-align: center; line-height: 1.5; }
+    .login-err { font-size: 13px; color: var(--dan); min-height: 18px; text-align: center; }
+    .login-status { font-size: 13px; color: var(--txt2); text-align: center; }
+    .sync-badge {
+      font-size: 11px; color: var(--txt3);
+      padding: 2px 8px; border-radius: 999px; background: var(--surf2);
+      white-space: nowrap;
+    }
+    .sync-badge.off { color: var(--dan); }
+
     /* ── DELETE MODAL ── */
     .del-msg {
       font-size: 14px; color: var(--txt2); line-height: 1.7;
@@ -466,6 +493,27 @@
   </style>
 </head>
 <body>
+
+  <!-- Login (부부가계부와 같은 Firebase 계정) -->
+  <div class="login-scr" id="loginScreen">
+    <div class="login-card">
+      <div class="login-title">📚 Book Tracker</div>
+      <div class="login-desc">부부가계부와 같은 계정으로 로그인하세요.<br>기기가 달라도 같은 목록을 보게 됩니다.</div>
+      <div class="login-status" id="loginStatus">확인 중...</div>
+      <form class="book-form" id="loginForm" style="display:none">
+        <div class="fg">
+          <label class="flbl" for="loginEmail">이메일</label>
+          <input type="email" class="finput" id="loginEmail" autocomplete="username" required>
+        </div>
+        <div class="fg">
+          <label class="flbl" for="loginPassword">비밀번호</label>
+          <input type="password" class="finput" id="loginPassword" autocomplete="current-password" required>
+        </div>
+        <div class="login-err" id="loginError"></div>
+        <button type="submit" class="btn-pr" id="loginBtn">로그인</button>
+      </form>
+    </div>
+  </div>
 
   <!-- Install Banner -->
   <div id="installBanner" class="install-banner hidden">
@@ -615,6 +663,26 @@
             <span class="sett-chev">›</span>
           </button>
           <input type="file" id="importFile" accept=".json" class="hidden">
+        </div>
+
+        <div class="settings-sect">
+          <p class="sect-title">계정</p>
+          <div class="sett-item no-hover">
+            <span class="sett-icon">☁️</span>
+            <div class="sett-info">
+              <span class="sett-name" id="accountEmail">-</span>
+              <span class="sett-desc">부부가계부와 같은 계정 · 기기 간 자동 동기화</span>
+            </div>
+            <span class="sync-badge" id="syncBadge">확인 중</span>
+          </div>
+          <button class="sett-item" id="btnLogout">
+            <span class="sett-icon">🚪</span>
+            <div class="sett-info">
+              <span class="sett-name">로그아웃</span>
+              <span class="sett-desc">이 기기에서 계정 연결 해제</span>
+            </div>
+            <span class="sett-chev">›</span>
+          </button>
         </div>
 
         <div class="settings-sect">
@@ -805,26 +873,229 @@
   //  INIT
   // ═══════════════════════════════
   document.addEventListener('DOMContentLoaded', () => {
-    loadBooks();
+    loadBooks();          // 캐시 먼저 그려서 로그인 확인 중에도 빈 화면이 아니게
     applyTheme();
     renderBooks();
     setupEvents();
     registerSW();
+    initAuth();
   });
 
   // ═══════════════════════════════
-  //  STORAGE
+  //  AUTH — 부부가계부(minsung-buboo2)와 같은 Firebase 프로젝트/계정을 쓴다.
+  //  이 config는 공개돼도 되는 값이다. 실제 접근 통제는 RTDB 보안 규칙이 한다
+  //  (books/{uid}는 본인만 읽고 쓸 수 있음).
   // ═══════════════════════════════
-  function loadBooks() {
+  const firebaseConfig = {
+    apiKey: 'AIzaSyAPXiob8XeDunXpDMsLod_TwClqg2JL260',
+    authDomain: 'minsung-buboo2.firebaseapp.com',
+    databaseURL: 'https://minsung-buboo2-default-rtdb.asia-southeast1.firebasedatabase.app',
+    projectId: 'minsung-buboo2',
+    storageBucket: 'minsung-buboo2.firebasestorage.app',
+    messagingSenderId: '318424534715',
+    appId: '1:318424534715:web:50a3b43ea5c5325ee5239e'
+  };
+
+  const AUTH_ERRORS = {
+    'auth/invalid-email':        '이메일 형식이 올바르지 않아요',
+    'auth/invalid-credential':   '이메일 또는 비밀번호가 맞지 않아요',
+    'auth/wrong-password':       '이메일 또는 비밀번호가 맞지 않아요',
+    'auth/user-not-found':       '등록되지 않은 계정이에요',
+    'auth/too-many-requests':    '시도가 너무 많아요. 잠시 후 다시 해주세요',
+    'auth/network-request-failed':'네트워크에 연결할 수 없어요',
+    'auth/unauthorized-domain':  '이 주소가 Firebase 승인 도메인에 없어요'
+  };
+
+  function initAuth() {
+    if (typeof firebase === 'undefined') {
+      // SDK를 못 불러온 경우(오프라인 첫 실행 등) 캐시만으로 계속 쓴다.
+      setText('loginStatus', '오프라인이라 저장된 목록만 보여드려요');
+      setTimeout(() => g('loginScreen').style.display = 'none', 1200);
+      return;
+    }
+
+    firebase.initializeApp(firebaseConfig);
+    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+
+    g('loginForm').addEventListener('submit', doLogin);
+
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) {
+        currentUid = user.uid;
+        setText('accountEmail', user.email || '로그인됨');
+        g('loginScreen').style.display = 'none';
+        startSync();
+      } else {
+        stopSync();
+        setText('accountEmail', '-');
+        setSyncBadge(false);
+        g('loginScreen').style.display = 'flex';
+        g('loginStatus').style.display = 'none';
+        g('loginForm').style.display = 'flex';
+      }
+    });
+  }
+
+  async function doLogin(e) {
+    e.preventDefault();
+    const btn = g('loginBtn');
+    setText('loginError', '');
+    btn.disabled = true;
+    btn.textContent = '로그인 중...';
     try {
-      const raw = localStorage.getItem('booktracker_v1');
-      books = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(books)) books = [];
-    } catch { books = []; }
+      await firebase.auth().signInWithEmailAndPassword(
+        g('loginEmail').value.trim(),
+        g('loginPassword').value
+      );
+      g('loginPassword').value = '';
+    } catch (err) {
+      setText('loginError', AUTH_ERRORS[err.code] || '로그인에 실패했어요');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '로그인';
+    }
+  }
+
+  function doLogout() {
+    if (typeof firebase === 'undefined') return;
+    firebase.auth().signOut().catch(() => showToast('로그아웃에 실패했어요'));
+  }
+
+  // ═══════════════════════════════
+  //  STORAGE
+  //
+  //  원본은 Firebase RTDB(books/{uid})이고 localStorage는 오프라인 캐시다.
+  //  - 로그인 전/오프라인: 캐시를 그대로 보여준다
+  //  - 로그인 후: RTDB 구독으로 덮어쓰고, 저장할 때마다 RTDB + 캐시에 같이 쓴다
+  //  같은 계정으로 로그인하면 폰·PC 어디서 넣어도 같은 목록이 된다.
+  // ═══════════════════════════════
+  const CACHE_KEY = 'booktracker_v1';
+  let currentUid = null;
+  let remoteReady = false;        // RTDB 첫 응답을 받았는지
+  let pendingLocalWrite = false;  // 아직 원격에 못 올린 이 기기의 편집이 있는지
+
+  // RTDB는 배열 중간에 구멍이 생기면 객체로 돌려준다. 두 경우를 모두 받는다.
+  function normalizeList(v) {
+    if (Array.isArray(v)) return v.filter(Boolean);
+    if (v && typeof v === 'object') return Object.values(v).filter(b => b && b.title);
+    return [];
+  }
+
+  // 원격/로컬이 같은 내용인지 비교용. 키 순서가 달라도 같게 보이도록 정렬한다
+  // (RTDB가 돌려주는 객체의 키 순서는 우리가 올린 순서와 다르다).
+  function fingerprint(list) {
+    return JSON.stringify(list.map(b => {
+      const o = {};
+      for (const k of Object.keys(b).sort()) if (b[k] !== undefined) o[k] = b[k];
+      return o;
+    }));
+  }
+
+  function loadCache() {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  }
+
+  function loadBooks() {
+    books = loadCache();
+  }
+
+  // RTDB는 undefined 값이 하나라도 있으면 set 전체가 실패한다.
+  // 예전 버전에서 만들어진 책에 빈 필드가 있을 수 있어 미리 걸러낸다.
+  function forRemote(list) {
+    return list.map(b => {
+      const o = {};
+      for (const [k, v] of Object.entries(b)) if (v !== undefined) o[k] = v;
+      return o;
+    });
+  }
+
+  // 원격 반영은 실패할 수 있다. 실패하면 pendingLocalWrite를 남겨
+  // 다음 기회에 다시 올리고, 그 전까지 원격 값이 로컬을 덮어쓰지 못하게 한다.
+  function pushRemote() {
+    if (!currentUid) return;
+    booksRef().set(forRemote(books))
+      .then(() => { pendingLocalWrite = false; setSyncBadge(true); })
+      .catch(() => { pendingLocalWrite = true; setSyncBadge(false, '동기화 대기'); });
   }
 
   function saveBooks() {
-    localStorage.setItem('booktracker_v1', JSON.stringify(books));
+    localStorage.setItem(CACHE_KEY, JSON.stringify(books));
+    if (!currentUid) return;                    // 로그인 전이면 캐시 전용
+
+    pendingLocalWrite = true;
+    if (!remoteReady) {
+      // 아직 원격과 연결되기 전. 캐시에만 두고, 연결되면 이 편집분을 올린다.
+      setSyncBadge(false, '동기화 대기');
+      return;
+    }
+    pushRemote();
+  }
+
+  function booksRef() {
+    return firebase.database().ref('books/' + currentUid);
+  }
+
+  function setSyncBadge(ok, label) {
+    const el = g('syncBadge');
+    if (!el) return;
+    el.textContent = label || (ok ? '동기화됨' : '오프라인');
+    el.classList.toggle('off', !ok);
+  }
+
+  // 로그인 직후 RTDB 구독 시작.
+  // 원칙: 이 기기에 아직 못 올린 편집이 있으면 로컬이 기준이고,
+  //       그렇지 않을 때만 원격 값을 받아들인다. (연결 전 편집이 사라지지 않게)
+  function startSync() {
+    remoteReady = false;
+    booksRef().on('value', snap => {
+      const remote = normalizeList(snap.val());
+      const first = !remoteReady;
+      remoteReady = true;
+
+      // 방금 우리가 올린 값이 되돌아온 경우엔 다시 올리지 않는다 (무한 루프 방지)
+      const inSync = fingerprint(remote) === fingerprint(books);
+
+      if (pendingLocalWrite && !inSync) {
+        // 못 올린 편집이 있다 → 원격으로 덮어쓰지 말고 다시 올린다
+        if (first && books.length === 0) books = loadCache();
+        pushRemote();
+      } else if (first && remote.length === 0 && !pendingLocalWrite) {
+        // 최초 전환: 원격이 비었으면 이 기기의 책을 계정에 올려 보존한다
+        const local = loadCache();
+        books = local;
+        if (local.length) {
+          pendingLocalWrite = true;
+          pushRemote();
+          showToast(`이 기기의 책 ${local.length}권을 계정에 올렸어요 ✓`);
+        }
+      } else {
+        books = remote;
+      }
+
+      localStorage.setItem(CACHE_KEY, JSON.stringify(books));
+      if (!pendingLocalWrite) setSyncBadge(true);
+      renderBooks();
+      updateStorageInfo();
+    }, () => {
+      // 구독이 취소됐다(권한 오류 등). 이후 편집은 캐시에만 쌓인다.
+      remoteReady = false;
+      setSyncBadge(false);
+      showToast('동기화가 끊겼어요. 변경사항은 이 기기에만 저장됩니다');
+    });
+  }
+
+  function stopSync() {
+    if (currentUid) { try { booksRef().off(); } catch {} }
+    currentUid = null;
+    remoteReady = false;
+    // 다른 계정으로 로그인했을 때 이전 계정의 편집분이 딸려 올라가면 안 된다.
+    // 못 올린 편집은 localStorage에 그대로 남아 있고, 같은 계정으로 다시
+    // 로그인하면 원격이 비어 있을 때 자동으로 복구된다.
+    pendingLocalWrite = false;
   }
 
   // ═══════════════════════════════
@@ -1252,6 +1523,9 @@
     // Header
     g('themeToggle').addEventListener('click', toggleTheme);
     g('addBookBtn').addEventListener('click', () => openModal());
+
+    // Account
+    g('btnLogout').addEventListener('click', doLogout);
 
     // List controls
     g('searchInput').addEventListener('input', renderBooks);

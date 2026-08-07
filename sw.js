@@ -1,4 +1,5 @@
-const CACHE = 'book-tracker-v2';
+// v4: Firebase 로그인/동기화 추가 — 기존 캐시를 반드시 갈아엎어야 새 index.html이 뜬다
+const CACHE = 'book-tracker-v4';
 const ASSETS = [
   '/book-tracker/',
   '/book-tracker/index.html',
@@ -27,6 +28,16 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+
+  // 이 앱 자신의 파일만 캐시한다.
+  // Firebase(RTDB 롱폴링·gstatic SDK) 같은 외부 요청까지 가로채면,
+  // 캐시 우선 전략이라 동기화 응답이 캐시에 무한히 쌓이고
+  // 옛 응답이 재생될 수도 있다. 그런 요청은 브라우저에 그대로 맡긴다.
+  let url;
+  try { url = new URL(e.request.url); } catch { return; }
+  if (url.origin !== self.location.origin) return;
+  if (!url.pathname.startsWith('/book-tracker/')) return;
+
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
