@@ -958,7 +958,10 @@
 
   function doLogout() {
     if (typeof firebase === 'undefined') return;
-    firebase.auth().signOut().catch(() => showToast('로그아웃에 실패했어요'));
+    firebase.auth().signOut()
+      // 로그아웃하면 이 기기의 책 목록 캐시를 지운다 (S12, 2026-09-03). 원본은 RTDB에 있다.
+      .then(() => { try { localStorage.removeItem(CACHE_KEY); } catch {} })
+      .catch(() => showToast('로그아웃에 실패했어요'));
   }
 
   // ═══════════════════════════════
