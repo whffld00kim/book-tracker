@@ -1,5 +1,5 @@
 // v4: Firebase 로그인/동기화 추가 — 기존 캐시를 반드시 갈아엎어야 새 index.html이 뜬다
-const CACHE = 'book-tracker-v5';
+const CACHE = 'book-tracker-v6';  // v6: 시작일(startDate) 칸 추가
 const ASSETS = [
   '/book-tracker/',
   '/book-tracker/index.html',

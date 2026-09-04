@@ -795,9 +795,15 @@
             </select>
           </div>
         </div>
-        <div class="fg">
-          <label class="flbl" for="fFinishDate">완독일</label>
-          <input type="date" class="finput" id="fFinishDate">
+        <div class="fr">
+          <div class="fg">
+            <label class="flbl" for="fStartDate">시작일</label>
+            <input type="date" class="finput" id="fStartDate">
+          </div>
+          <div class="fg">
+            <label class="flbl" for="fFinishDate">완독일</label>
+            <input type="date" class="finput" id="fFinishDate">
+          </div>
         </div>
         <div class="fg">
           <label class="flbl">별점</label>
@@ -1198,7 +1204,7 @@
   ${sub ? `<p class="card-sub">${sub}</p>` : ''}
   <div class="card-bot">
     <div class="stars-sm">${stars}</div>
-    ${b.finishDate ? `<span class="card-date">${fmtDate(b.finishDate)}</span>` : ''}
+    <span class="card-date">시작 ${b.startDate ? fmtDate(b.startDate) : '-'}${b.finishDate ? ` · 완독 ${fmtDate(b.finishDate)}` : ''}</span>
   </div>
   ${review ? `<p class="card-review">${review}</p>` : ''}
 </article>`;
@@ -1302,6 +1308,7 @@
       setVal('fPublisher',  b.publisher  || '');
       setVal('fCategory',   b.category   || '');
       setVal('fStatus',     b.status     || '읽는중');
+      setVal('fStartDate',  b.startDate  || '');   // 시작일 칸 도입(2026-09-04) 전 책은 빈칸 = 화면엔 '-'
       setVal('fFinishDate', b.finishDate || '');
       g('fWantToBuy').checked = !!b.wantToBuy;
       g('fPurchased').checked = !!b.purchased;
@@ -1309,6 +1316,7 @@
       setRating(b.rating || 0);
     } else {
       setText('modalTitle', '책 추가');
+      setVal('fStartDate', todayISO());   // 새 책은 오늘부터 읽기 시작한 것으로. 아니면 지우면 된다
     }
 
     updatePurchasedRow();
@@ -1334,6 +1342,7 @@
       publisher:   g('fPublisher').value.trim(),
       category:    g('fCategory').value,
       status:      g('fStatus').value,
+      startDate:   g('fStartDate').value,
       finishDate:  g('fFinishDate').value,
       rating:      currentRating,
       wantToBuy:   g('fWantToBuy').checked,
@@ -1440,10 +1449,10 @@
   // ═══════════════════════════════
   function exportCSV() {
     if (!books.length) { showToast('저장된 책이 없어요'); return; }
-    const H = ['제목','저자','출판사','카테고리','상태','완독일','별점','구매희망','구매완료','감상평','등록일'];
+    const H = ['제목','저자','출판사','카테고리','상태','시작일','완독일','별점','구매희망','구매완료','감상평','등록일'];
     const rows = books.map(b => [
       b.title, b.author, b.publisher, b.category, b.status,
-      b.finishDate, b.rating||'', b.wantToBuy?'O':'X', (b.wantToBuy && b.purchased)?'O':'X',
+      b.startDate || '-', b.finishDate, b.rating||'', b.wantToBuy?'O':'X', (b.wantToBuy && b.purchased)?'O':'X',
       (b.review||'').replace(/"/g,'""'),
       b.createdAt ? new Date(b.createdAt).toLocaleDateString('ko-KR') : ''
     ].map(v => `"${v||''}"`).join(','));
@@ -1655,6 +1664,10 @@
   function today() {
     const d = new Date();
     return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function todayISO() {   // date input용 YYYY-MM-DD
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
   function dlFile(content, name, type) {
     const a = document.createElement('a');
