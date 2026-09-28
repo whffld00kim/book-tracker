@@ -490,6 +490,156 @@
     /* ── UTILITIES ── */
     .hidden { display: none !important; }
     input[type="file"].hidden { display: none !important; }
+
+    /* ============ 태블릿 (2026-09-28) ============
+       갤럭시 탭을 가로로 두고 쓸 때. 폰 화면(위 규칙 전부)은 건드리지 않고 넓을 때만 덮어쓴다.
+       - 하단 네비게이션 → 헤더 아래 왼쪽 세로 레일 (가로 화면은 높이가 아깝다)
+       - 목록은 세 단, 통계는 요약 한 줄 + 그래프 카드가 남는 높이를 나눈다, 설정은 두 단
+       - 탭 화면은 min-height라 책이 많으면 그대로 아래로 늘어난다
+       이 블록은 <style> 맨 끝에 둔다 — 위 규칙보다 뒤여야 이긴다 */
+    @media (min-width: 900px) and (orientation: landscape) {
+      :root { --rail-w: 92px; --hh: 64px; }
+
+      /* ── 헤더 ── */
+      .app-header { padding: 0 28px 0 24px; }
+      .app-logo { font-size: 20px; gap: 10px; }
+      .app-logo svg { width: 26px; height: 26px; }
+      .hdr-right { gap: 12px; }
+      .theme-btn { width: 42px; height: 42px; font-size: 18px; }
+      .add-btn { padding: 10px 20px; font-size: 15px; }
+      .install-banner { left: var(--rail-w); padding: 12px 28px; font-size: 14px; }
+
+      /* ── 왼쪽 레일 ── */
+      .bottom-nav {
+        top: var(--hh);
+        bottom: 0;
+        right: auto;
+        width: var(--rail-w);
+        height: auto;
+        flex-direction: column;
+        justify-content: center;
+        gap: 6px;
+        padding: 0 0 0 env(safe-area-inset-left, 0);
+        border-top: none;
+        border-right: 1px solid var(--bdr);
+        box-shadow: 2px 0 12px rgba(0,0,0,.05);
+      }
+      .nav-btn { flex: 0 0 auto; width: 100%; padding: 14px 0; gap: 5px; }
+      .nav-icon svg { width: 26px; height: 26px; }
+      .nav-lbl { font-size: 12px; }
+
+      /* ── 본문: 레일 옆 전체 폭, 1320px에서 가운데 ── */
+      .main-wrap { padding-left: var(--rail-w); padding-bottom: 0; }
+      .tab-pane.active {
+        display: flex;
+        flex-direction: column;
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 22px 28px 28px;
+        min-height: calc(100vh - var(--hh));
+        min-height: calc(100dvh - var(--hh));
+      }
+
+      /* ── 목록: 검색 + 필터 한 줄, 카드 세 단 ── */
+      #tab-list.active {
+        display: grid;
+        grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr);
+        grid-template-rows: auto auto 1fr;
+        column-gap: 12px;
+        align-content: start;
+      }
+      #tab-list .search-box { margin-bottom: 12px; }
+      #tab-list .filter-row { margin-bottom: 12px; flex-wrap: nowrap; gap: 8px; }
+      #tab-list .list-meta, #tab-list .book-grid, #tab-list .empty-state { grid-column: 1 / -1; }
+      #tab-list .book-grid, #tab-list .empty-state { grid-row: 3; }
+      .search-input { padding: 12px 14px 12px 38px; font-size: 16px; }
+      .search-icon { left: 13px; }
+      .flt { padding: 11px 10px; font-size: 14px; min-width: 0; }
+      .list-meta { font-size: 13px; margin-bottom: 12px; }
+      .book-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        padding-bottom: 0;
+        align-content: start;
+      }
+      .book-card { padding: 18px 18px 15px; gap: 8px; }
+      .badge { font-size: 12px; padding: 3px 9px; }
+      .buy-badge { font-size: 12px; padding: 5px 10px; }
+      .del-btn { font-size: 15px; padding: 6px 8px; }
+      .card-title { font-size: 17px; }
+      .card-sub { font-size: 14px; }
+      .star-sm { font-size: 15px; }
+      .card-date { font-size: 13px; }
+      .card-review { font-size: 13px; padding-top: 8px; }
+      .empty-state { align-self: center; }
+
+      /* ── 통계: 숫자 넷 / 월별(왼쪽 세로로 길게) | 카테고리·구매(오른쪽 위아래) ── */
+      #tab-stats .stats-wrap {
+        flex: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows: auto minmax(220px, 1fr) minmax(200px, 1fr);
+        gap: 16px;
+        padding-bottom: 0;
+      }
+      .stat-grid { grid-column: 1 / -1; gap: 16px; }
+      .stat-card { padding: 16px 10px; gap: 6px; }
+      .stat-num { font-size: 34px; }
+      .stat-lbl { font-size: 14px; }
+      .chart-card { display: flex; flex-direction: column; padding: 18px 22px; min-height: 0; }
+      .chart-card:has(#monthlyChart) { grid-column: 1; grid-row: 2 / span 2; }
+      .chart-title { font-size: 16px; margin-bottom: 12px; }
+      .chart-rows { flex: 1; justify-content: space-around; gap: 6px; }
+      .chart-row { gap: 12px; }
+      .chart-lbl { font-size: 13px; width: 64px; }
+      .chart-track { height: 18px; border-radius: 9px; }
+      .chart-fill { border-radius: 9px; }
+      .chart-num { font-size: 14px; width: 26px; }
+      .no-data { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+      .buy-summary { flex: 1; justify-content: space-around; gap: 8px; }
+      .buy-row { font-size: 16px; }
+      .buy-prog-track { height: 14px; border-radius: 8px; }
+
+      /* ── 설정: 두 단, 항목 수대로 높이를 나눈다 (왼쪽 내보내기·불러오기·위험 / 오른쪽 계정·앱 정보) ── */
+      .settings-wrap {
+        flex: 1;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(4, minmax(min-content, 1fr));
+        grid-template-areas: "ex ac" "ex ac" "im in" "dg in";
+        gap: 18px 20px;
+        padding-bottom: 0;
+      }
+      .settings-sect { display: flex; flex-direction: column; }
+      .settings-sect:nth-child(1) { grid-area: ex; }
+      .settings-sect:nth-child(2) { grid-area: im; }
+      .settings-sect:nth-child(3) { grid-area: ac; }
+      .settings-sect:nth-child(4) { grid-area: in; }
+      .settings-sect:nth-child(5) { grid-area: dg; }
+      .settings-sect .sett-item { flex: 1; }
+      .sect-title { font-size: 12px; padding: 16px 20px 8px; }
+      .sett-item { padding: 18px 20px; gap: 16px; }
+      .sett-icon { font-size: 22px; }
+      .sett-name { font-size: 16px; }
+      .sett-desc { font-size: 13px; }
+      .sync-badge { font-size: 13px; padding: 4px 12px; }
+
+      /* ── 입력창: 가운데 창 (레일만큼 비켜서) ── */
+      .modal-overlay { align-items: center; padding: 20px 20px 20px calc(var(--rail-w) + 20px); }
+      .modal-box { max-width: 560px; max-height: 90vh; border-radius: 20px; padding: 24px 26px; }
+      .modal-box-sm { max-height: 60vh; }
+      .modal-title { font-size: 19px; }
+      .modal-close { width: 38px; height: 38px; font-size: 16px; }
+      .flbl { font-size: 13px; }
+      .finput { font-size: 15px; padding: 11px 13px; }
+      .star-rate .star { font-size: 30px; }
+      .tog-lbl { font-size: 15px; }
+      .btn-pr, .btn-sec, .btn-dan { font-size: 15px; padding: 13px 22px; }
+      .del-msg { font-size: 15px; }
+
+      .toast { bottom: 28px; left: calc(50% + var(--rail-w) / 2); font-size: 14px; }
+    }
+
   </style>
 </head>
 <body>
