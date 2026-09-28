@@ -15,6 +15,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <style>
+/* 맨 위에서 아래로 당기면 크롬이 페이지를 새로고침하던 것을 막는다 (2026-09-28 사용자 요청 — 새로고침되며 로그인 화면이 다시 떴다) */
+html, body { overscroll-behavior-y: none; }
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
     :root {
