@@ -642,6 +642,20 @@ html, body { overscroll-behavior-y: none; }
       .toast { bottom: 28px; left: calc(50% + var(--rail-w) / 2); font-size: 14px; }
     }
 
+
+    /* ── 책 수정창 감상평 (2026-10-04) ──
+       좁은 화면: 쓴 만큼 자라는 칸(최소 5줄). 넓은 화면(폴드7 펼침·태블릿 — 폭 760px 이상): 창을 넓히고
+       왼쪽 책 정보 | 오른쪽 감상평 2단, 감상평이 왼쪽 높이를 다 쓴다. 폰 접은 화면은 그대로. */
+    textarea#fReview { min-height: 7.5em; resize: none; overflow: hidden; }
+    @media (min-width: 760px) {
+      .modal-overlay { align-items: center; padding: 20px; }
+      .modal-box { max-width: 1040px; max-height: 92vh; }
+      .book-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); column-gap: 26px; align-items: start; }
+      .book-form > * { grid-column: 1; }
+      .book-form > .fg-review { grid-column: 2; grid-row: 1 / span 6; align-self: stretch; min-height: 420px; }
+      .fg-review textarea#fReview { flex: 1; min-height: 0; height: auto !important; overflow-y: auto; }
+      .book-form > .form-acts { grid-column: 1 / -1; }
+    }
   </style>
 </head>
 <body>
@@ -980,7 +994,7 @@ html, body { overscroll-behavior-y: none; }
             <span class="tog-lbl">구매 완료했어요 ✅</span>
           </label>
         </div>
-        <div class="fg">
+        <div class="fg fg-review">
           <label class="flbl" for="fReview">감상평</label>
           <textarea class="finput" id="fReview" placeholder="책에 대한 감상을 자유롭게 적어보세요..."></textarea>
         </div>
@@ -1474,7 +1488,29 @@ html, body { overscroll-behavior-y: none; }
     updatePurchasedRow();
     g('modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
-    requestAnimationFrame(() => g('fTitle')?.focus());
+    requestAnimationFrame(() => {
+      fitReview();
+      const ta = g('fReview');
+      if (id && ta.value) {
+        // 이어 쓰기: 수정창을 열면 감상평 끝에 커서를 두고 그 자리를 보이게 (2026-10-04)
+        ta.focus({ preventScroll: true });
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+        ta.scrollTop = ta.scrollHeight;
+        if (!isWideForm()) ta.scrollIntoView({ block: 'end' });
+      } else {
+        g('fTitle')?.focus();
+      }
+    });
+  }
+
+  // 좁은 화면에서 감상평 칸을 쓴 만큼 늘린다. 넓은 화면은 CSS가 2단 높이를 맡으므로 손대지 않는다
+  function isWideForm() { return window.matchMedia('(min-width: 760px)').matches; }
+  function fitReview() {
+    const ta = g('fReview');
+    if (!ta) return;
+    if (isWideForm()) { ta.style.height = ''; return; }
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 2 + 'px';
   }
 
   function closeModal() {
@@ -1693,6 +1729,8 @@ html, body { overscroll-behavior-y: none; }
 
     // List controls
     g('searchInput').addEventListener('input', renderBooks);
+    g('fReview').addEventListener('input', fitReview);
+    window.addEventListener('resize', fitReview);
     g('filterCategory').addEventListener('change', renderBooks);
     g('filterStatus').addEventListener('change', renderBooks);
     g('filterWantToBuy').addEventListener('change', renderBooks);
