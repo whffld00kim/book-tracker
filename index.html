@@ -2,7 +2,7 @@
 <html lang="ko" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="theme-color" content="#6366f1">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -278,11 +278,11 @@ html, body { overscroll-behavior-y: none; }
       background: var(--surf);
       border-radius: var(--rad) var(--rad) 0 0;
       width: 100%; max-width: 580px;
-      max-height: 92vh; overflow-y: auto;
+      max-height: 100%; overflow-y: auto;
       padding: 20px 18px;
       transition: background var(--tr);
     }
-    @media (min-width: 580px) { .modal-box { border-radius: var(--rad); max-height: 88vh; } }
+    @media (min-width: 580px) { .modal-box { border-radius: var(--rad); } }
     .modal-box-sm { max-height: 55vh; }
     .modal-hdr {
       display: flex; align-items: center; justify-content: space-between;
@@ -628,7 +628,7 @@ html, body { overscroll-behavior-y: none; }
 
       /* ── 입력창: 가운데 창 (레일만큼 비켜서) ── */
       .modal-overlay { align-items: center; padding: 20px 20px 20px calc(var(--rail-w) + 20px); }
-      .modal-box { max-width: 560px; max-height: 90vh; border-radius: 20px; padding: 24px 26px; }
+      .modal-box { max-width: 560px; border-radius: 20px; padding: 24px 26px; }
       .modal-box-sm { max-height: 60vh; }
       .modal-title { font-size: 19px; }
       .modal-close { width: 38px; height: 38px; font-size: 16px; }
@@ -647,14 +647,15 @@ html, body { overscroll-behavior-y: none; }
        좁은 화면: 쓴 만큼 자라는 칸(최소 5줄). 넓은 화면(폴드7 펼침·태블릿 — 폭 760px 이상): 창을 넓히고
        왼쪽 책 정보 | 오른쪽 감상평 2단, 감상평이 왼쪽 높이를 다 쓴다. 폰 접은 화면은 그대로. */
     textarea#fReview { min-height: 7.5em; resize: none; overflow: hidden; }
-    @media (min-width: 760px) {
+    @media (min-width: 700px) {
       .modal-overlay { align-items: center; padding: 20px; }
-      .modal-box { max-width: 1040px; max-height: 92vh; }
+      .modal-box { max-width: 1040px; }
       .book-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); column-gap: 26px; align-items: start; }
       .book-form > * { grid-column: 1; }
       .book-form > .fg-review { grid-column: 2; grid-row: 1 / span 6; align-self: stretch; min-height: 420px; }
       .fg-review textarea#fReview { flex: 1; min-height: 0; height: auto !important; overflow-y: auto; }
       .book-form > .form-acts { grid-column: 1 / -1; }
+      .book-form input[type=date].finput { font-size: 13.5px; padding-inline: 10px; }
     }
   </style>
 </head>
@@ -1504,7 +1505,21 @@ html, body { overscroll-behavior-y: none; }
   }
 
   // 좁은 화면에서 감상평 칸을 쓴 만큼 늘린다. 넓은 화면은 CSS가 2단 높이를 맡으므로 손대지 않는다
-  function isWideForm() { return window.matchMedia('(min-width: 760px)').matches; }
+  function isWideForm() { return window.matchMedia('(min-width: 700px)').matches; }
+
+  // 키보드가 올라오면 덮개를 보이는 영역(visualViewport)에 맞춰 줄이고, 감상평 칸이 가려지지 않게 끌어올린다 (2026-10-04)
+  function fitOverlayToKeyboard() {
+    const ov = g('modal'), vv = window.visualViewport;
+    if (!ov || ov.classList.contains('hidden')) return;
+    if (vv && vv.height < window.innerHeight - 60) {
+      ov.style.top = vv.offsetTop + 'px';
+      ov.style.height = vv.height + 'px';
+    } else {
+      ov.style.top = ''; ov.style.height = '';
+    }
+    const ta = g('fReview');
+    if (document.activeElement === ta) ta.scrollIntoView({ block: 'nearest' });
+  }
   function fitReview() {
     const ta = g('fReview');
     if (!ta) return;
@@ -1515,6 +1530,7 @@ html, body { overscroll-behavior-y: none; }
 
   function closeModal() {
     g('modal').classList.add('hidden');
+    g('modal').style.top = ''; g('modal').style.height = '';
     document.body.style.overflow = '';
     editingId = null;
   }
@@ -1731,6 +1747,9 @@ html, body { overscroll-behavior-y: none; }
     g('searchInput').addEventListener('input', renderBooks);
     g('fReview').addEventListener('input', fitReview);
     window.addEventListener('resize', fitReview);
+    g('fReview').addEventListener('focus', () => setTimeout(fitOverlayToKeyboard, 350));
+    window.visualViewport?.addEventListener('resize', fitOverlayToKeyboard);
+    window.visualViewport?.addEventListener('scroll', fitOverlayToKeyboard);
     g('filterCategory').addEventListener('change', renderBooks);
     g('filterStatus').addEventListener('change', renderBooks);
     g('filterWantToBuy').addEventListener('change', renderBooks);

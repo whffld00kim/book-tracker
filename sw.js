@@ -2,7 +2,7 @@
 // 그전엔 네트워크 우선이라 열 때마다 앱 파일·라이브러리 응답을 기다렸다.
 // ⚠ index.html을 고치면 CACHE 버전을 올린다. 고친 뒤 첫 실행은 옛 화면, 두 번째 실행부터 새 화면이다.
 // ⚠ index.html이 부르는 파일을 바꾸면 OWN·CDN 목록도 같이 고친다 (한 글자라도 다르면 미리 받아 둔 의미가 없다).
-const CACHE = 'book-tracker-v10';
+const CACHE = 'book-tracker-v11';
 
 // 이 앱의 파일
 const OWN = [
