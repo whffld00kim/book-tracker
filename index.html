@@ -1497,8 +1497,9 @@ html, body { overscroll-behavior-y: none; }
     });
     books.forEach(b => {
       if (b.status === '완독' && b.finishDate) {
-        const d = new Date(b.finishDate);
-        const mo = months.find(m => m.y === d.getFullYear() && m.m === d.getMonth()+1);
+        // 'YYYY-MM-DD' 를 글자 그대로 읽는다. new Date('YYYY-MM-DD') 는 UTC 자정으로 해석해 서쪽 시간대에서는 하루 전(전달)로 밀린다
+        const [y, m] = String(b.finishDate).split('-').map(Number);
+        const mo = months.find(x => x.y === y && x.m === m);
         if (mo) mo.cnt++;
       }
     });
