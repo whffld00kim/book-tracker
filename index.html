@@ -1037,6 +1037,7 @@ html, body { overscroll-behavior-y: none; }
   // ═══════════════════════════════
   let books = [];
   let editingId = null;
+  let editingBase = null;      // 수정창을 열 때의 책 원본 — 저장할 때 그 책이 (다른 기기에서) 지워져 있으면 이걸로 다시 넣는다
   let deleteId = null;
   let currentRating = 0;
   let currentTab = 'list';
@@ -1531,12 +1532,14 @@ html, body { overscroll-behavior-y: none; }
   // ═══════════════════════════════
   function openModal(id = null) {
     editingId = id;
+    editingBase = null;
     g('bookForm').reset();
     setRating(0);
 
     if (id) {
       const b = books.find(b => b.id === id);
       if (!b) return;
+      editingBase = b;
       setText('modalTitle', '책 수정');
       setVal('fTitle',      b.title      || '');
       setVal('fAuthor',     b.author     || '');
@@ -1601,6 +1604,7 @@ html, body { overscroll-behavior-y: none; }
     g('modal').style.top = ''; g('modal').style.height = '';
     document.body.style.overflow = '';
     editingId = null;
+    editingBase = null;
   }
 
   function submitForm(e) {
@@ -1622,8 +1626,14 @@ html, body { overscroll-behavior-y: none; }
       review:      g('fReview').value.trim()
     };
 
-    if (editingId) { updateBook(editingId, data); showToast('수정되었어요 ✓'); }
-    else           { createBook(data);            showToast('추가되었어요 ✓'); }
+    if (editingId) {
+      // 수정창을 열어 둔 사이 다른 기기에서 그 책이 지워졌으면, 쓴 내용을 버리지 않고 같은 id·등록일로 다시 넣는다
+      if (!updateBook(editingId, data)) createBook({ ...editingBase, ...data, updatedAt: new Date().toISOString() });
+      showToast('수정되었어요 ✓');
+    } else {
+      createBook(data);
+      showToast('추가되었어요 ✓');
+    }
 
     closeModal();
     renderBooks();
