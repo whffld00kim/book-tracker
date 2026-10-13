@@ -1320,6 +1320,7 @@ html, body { overscroll-behavior-y: none; }
       if (pending.length) flushPending(); else setSyncBadge(true);
       renderBooks();
       updateStorageInfo();
+      if (currentTab === 'stats') renderStats();   // 통계 탭을 보는 중에 다른 기기가 고친 것도 바로 반영
     }, () => {
       // 구독이 취소됐다(권한 오류 등). 이후 편집은 캐시와 pending 에만 쌓인다.
       remoteReady = false;
