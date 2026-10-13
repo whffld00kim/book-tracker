@@ -1732,13 +1732,15 @@ html, body { overscroll-behavior-y: none; }
   function exportCSV() {
     if (!books.length) { showToast('저장된 책이 없어요'); return; }
     const H = ['제목','저자','출판사','카테고리','상태','시작일','완독일','별점','구매희망','구매완료','감상평','등록일'];
+    // 모든 칸을 큰따옴표로 감싸고 안의 큰따옴표는 두 번 쓴다 (RFC 4180). 예전엔 감상평만 처리해 제목·저자에 "가 있으면 행이 깨졌다
+    const cell = v => `"${String(v || '').replace(/"/g, '""')}"`;
     const rows = books.map(b => [
       b.title, b.author, b.publisher, b.category, b.status,
       b.startDate || '-', b.finishDate, b.rating||'', b.wantToBuy?'O':'X', (b.wantToBuy && b.purchased)?'O':'X',
-      (b.review||'').replace(/"/g,'""'),
+      b.review,
       b.createdAt ? new Date(b.createdAt).toLocaleDateString('ko-KR') : ''
-    ].map(v => `"${v||''}"`).join(','));
-    const csv = '\uFEFF' + [H.map(v=>`"${v}"`).join(','), ...rows].join('\n');
+    ].map(cell).join(','));
+    const csv = '\uFEFF' + [H.map(cell).join(','), ...rows].join('\n');
     dlFile(csv, `book-tracker-${today()}.csv`, 'text/csv;charset=utf-8;');
     showToast('CSV 파일을 저장했어요 ✓');
   }
