@@ -1082,6 +1082,9 @@ html, body { overscroll-behavior-y: none; }
   function initAuth() {
     if (typeof firebase === 'undefined') {
       // SDK를 못 불러온 경우(오프라인 첫 실행 등) 캐시만으로 계속 쓴다.
+      // 이때 고친 것은 이 기기가 마지막으로 동기화한 계정의 미반영 편집(pending)으로 남겨, 다음에 SDK 가 뜨면 올린다.
+      try { pendingUid = localStorage.getItem(UID_KEY) || null; } catch {}
+      pending = loadPending(pendingUid);
       setText('loginStatus', '오프라인이라 저장된 목록만 보여드려요');
       setTimeout(() => g('loginScreen').style.display = 'none', 1200);
       return;
@@ -1144,27 +1147,31 @@ html, body { overscroll-behavior-y: none; }
   //  - 로그인 전/오프라인: 캐시를 그대로 보여준다
   //  - 로그인 후: RTDB 구독으로 덮어쓰고, 저장할 때마다 RTDB + 캐시에 같이 쓴다
   //  같은 계정으로 로그인하면 폰·PC 어디서 넣어도 같은 목록이 된다.
+  //
+  //  저장 방식 (2026-10-13 — 기기 둘을 함께 쓸 때 기록이 지워지던 것을 고침):
+  //  예전엔 고칠 때마다 books/{uid} 배열 전체를 set 했다. 그러면 옛 화면(연결 끊긴 태블릿 등)에서 저장하는 순간
+  //  다른 기기가 그 사이 고친 책이 통째로 되돌아가고, 오프라인에서 고친 것은 앱을 닫으면 사라졌다(메모리에만 있었다).
+  //  지금은 이 기기에서 바뀐 책만 '미반영 편집'(pending: 책 넣기 put / 빼기 del)으로 localStorage 에 남겨 두고,
+  //  transaction 으로 원격의 최신 배열에 그 편집만 끼워 넣는다. 데이터 모양(books/{uid} = 책 배열)과 필드는 그대로다.
+  //  - 다른 기기가 고친 책은 건드리지 않는다. 같은 책을 양쪽에서 고쳤으면 updatedAt(없으면 createdAt)이 더 나중인 쪽이 남는다
+  //  - 지운 책은, 지운 시각(at)보다 나중에 다른 기기가 그 책을 고친 경우가 아니면 지워진다
+  //  - 앱을 닫아도 pending 은 남아 다음 실행(첫 응답 뒤)에 올라간다. 로그아웃해도 계정별로 남아 같은 계정으로 다시 로그인하면 올라간다
   // ═══════════════════════════════
-  const CACHE_KEY = 'booktracker_v1';
+  const CACHE_KEY   = 'booktracker_v1';
+  const PENDING_KEY = 'booktracker_v1_pending';   // { [uid]: [ {t:'put', b:책}, {t:'del', id, at} ] }
+  const UID_KEY     = 'booktracker_v1_uid';       // 이 기기에서 마지막으로 동기화한 계정 (동기화 이력 판단 + SDK 없을 때 pending 의 주인)
   let currentUid = null;
   let remoteReady = false;        // RTDB 첫 응답을 받았는지
-  let pendingLocalWrite = false;  // 아직 원격에 못 올린 이 기기의 편집이 있는지
+  let pendingUid = null;          // 메모리의 pending 이 어느 계정 것인지
+  let pending = [];               // 아직 원격에 반영되지 않은 이 기기의 편집 (localStorage 에도 같은 내용이 있다)
+  let flushing = false;           // transaction 이 진행 중인지
+  let syncSession = 0;            // startSync/stopSync 마다 1씩 — 로그아웃 전에 시작된 transaction 의 결과를 구분한다
 
   // RTDB는 배열 중간에 구멍이 생기면 객체로 돌려준다. 두 경우를 모두 받는다.
   function normalizeList(v) {
     if (Array.isArray(v)) return v.filter(Boolean);
     if (v && typeof v === 'object') return Object.values(v).filter(b => b && b.title);
     return [];
-  }
-
-  // 원격/로컬이 같은 내용인지 비교용. 키 순서가 달라도 같게 보이도록 정렬한다
-  // (RTDB가 돌려주는 객체의 키 순서는 우리가 올린 순서와 다르다).
-  function fingerprint(list) {
-    return JSON.stringify(list.map(b => {
-      const o = {};
-      for (const k of Object.keys(b).sort()) if (b[k] !== undefined) o[k] = b[k];
-      return o;
-    }));
   }
 
   function loadCache() {
@@ -1179,7 +1186,7 @@ html, body { overscroll-behavior-y: none; }
     books = loadCache();
   }
 
-  // RTDB는 undefined 값이 하나라도 있으면 set 전체가 실패한다.
+  // RTDB는 undefined 값이 하나라도 있으면 쓰기 전체가 실패한다.
   // 예전 버전에서 만들어진 책에 빈 필드가 있을 수 있어 미리 걸러낸다.
   function forRemote(list) {
     return list.map(b => {
@@ -1189,26 +1196,85 @@ html, body { overscroll-behavior-y: none; }
     });
   }
 
-  // 원격 반영은 실패할 수 있다. 실패하면 pendingLocalWrite를 남겨
-  // 다음 기회에 다시 올리고, 그 전까지 원격 값이 로컬을 덮어쓰지 못하게 한다.
-  function pushRemote() {
-    if (!currentUid) return;
-    booksRef().set(forRemote(books))
-      .then(() => { pendingLocalWrite = false; setSyncBadge(true); })
-      .catch(() => { pendingLocalWrite = true; setSyncBadge(false, '동기화 대기'); });
+  function newId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  // ── 미반영 편집(pending) ──
+  function readPendingAll() {
+    try {
+      const all = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null');
+      return all && typeof all === 'object' && !Array.isArray(all) ? all : {};
+    } catch { return {}; }
+  }
+  function loadPending(uid) {
+    const ops = uid ? readPendingAll()[uid] : null;
+    return Array.isArray(ops) ? ops.filter(op => op && (op.t === 'del' ? op.id : op.t === 'put' && op.b && op.b.id)) : [];
+  }
+  function savePending() {
+    if (!pendingUid) return;
+    try {
+      const all = readPendingAll();
+      if (pending.length) all[pendingUid] = pending; else delete all[pendingUid];
+      localStorage.setItem(PENDING_KEY, JSON.stringify(all));
+    } catch {}
+  }
+  const opId  = op => (op.t === 'del' ? op.id : op.b.id);
+  const stamp = b  => (b && (b.updatedAt || b.createdAt)) || '';   // 책이 마지막으로 바뀐 시각 (ISO 문자열이라 그대로 비교한다)
+
+  // 편집 하나를 pending 에 넣는다. 같은 책의 이전 편집은 이것으로 바꾼다 (빠르게 연달아 고쳐도 마지막 것만 올라간다)
+  function queueOp(op) {
+    if (!pendingUid) return;        // 어느 계정 것인지 모르면(동기화한 적 없는 기기에서 SDK 도 못 불러온 경우) 캐시 전용
+    pending = pending.filter(o => opId(o) !== opId(op));
+    pending.push(op);
+    savePending();
+  }
+
+  // pending 편집을 배열에 끼워 넣는다. transaction 안에서 원격 배열에, 그리고 화면용으로도 같은 함수를 쓴다.
+  // 같은 편집을 두 번 적용해도 결과가 같다 (transaction 이 다시 돌아도 안전).
+  function applyOps(list, ops) {
+    const out = list.slice();
+    for (const op of ops) {
+      const id = opId(op);
+      const i = out.findIndex(b => b.id === id);
+      if (op.t === 'del') {
+        if (i >= 0 && !(stamp(out[i]) > op.at)) out.splice(i, 1);   // 지운 뒤에 다른 기기가 고친 책은 살려 둔다
+      } else if (i >= 0) {
+        if (!(stamp(out[i]) > stamp(op.b))) out[i] = op.b;          // 더 나중에 고친 쪽이 남는다
+      } else {
+        out.unshift(op.b);                                          // 새 책 (또는 지워졌지만 이 기기가 그 뒤에 고친 책)
+      }
+    }
+    return out;
+  }
+
+  // pending 을 원격에 올린다. transaction: 서버의 최신 배열에 이 기기의 편집만 끼워 넣고, 그 사이 서버가 바뀌었으면 다시 돈다.
+  // 오프라인이면 SDK 가 연결될 때까지 들고 있다가 보낸다. 그 전에 앱이 닫혀도 pending 이 localStorage 에 남아 다음 실행에 올린다.
+  function flushPending() {
+    if (!currentUid || !remoteReady || flushing || !pending.length) return;
+    const batch = pending.slice();
+    const session = syncSession;
+    flushing = true;
+    let ok = false, tx;
+    try { tx = booksRef().transaction(cur => forRemote(applyOps(normalizeList(cur), batch))); }
+    catch { flushing = false; setSyncBadge(false, '동기화 대기'); return; }   // 함수 안에서 예외가 나도 다음 시도가 막히지 않게
+    tx.then(res => { ok = !!(res && res.committed); }, () => { ok = false; })
+      .then(() => {
+        if (session !== syncSession) return;          // 그 사이 로그아웃했다 — 결과는 버린다 (pending 은 계정별로 남아 있다)
+        flushing = false;
+        if (!ok) { setSyncBadge(false, '동기화 대기'); return; }   // 권한 오류 등. 다음 편집·다음 응답 때 다시 시도한다
+        pending = pending.filter(op => !batch.includes(op));       // 올라간 편집만 지운다 (그 사이 들어온 편집은 남는다)
+        savePending();
+        if (pending.length) flushPending(); else setSyncBadge(true);
+      });
   }
 
   function saveBooks() {
     localStorage.setItem(CACHE_KEY, JSON.stringify(books));
-    if (!currentUid) return;                    // 로그인 전이면 캐시 전용
-
-    pendingLocalWrite = true;
-    if (!remoteReady) {
-      // 아직 원격과 연결되기 전. 캐시에만 두고, 연결되면 이 편집분을 올린다.
-      setSyncBadge(false, '동기화 대기');
-      return;
-    }
-    pushRemote();
+    if (!currentUid) return;                    // 로그인 전이면 캐시 전용 (편집은 pending 에 남아 있다)
+    if (pending.length) setSyncBadge(false, '동기화 대기');
+    if (!remoteReady) return;                   // 아직 원격과 연결되기 전. 첫 응답을 받으면 그때 올린다
+    flushPending();
   }
 
   function booksRef() {
@@ -1223,41 +1289,38 @@ html, body { overscroll-behavior-y: none; }
   }
 
   // 로그인 직후 RTDB 구독 시작.
-  // 원칙: 이 기기에 아직 못 올린 편집이 있으면 로컬이 기준이고,
-  //       그렇지 않을 때만 원격 값을 받아들인다. (연결 전 편집이 사라지지 않게)
+  // 원칙: 화면 = 원격 최신 배열 + 이 기기의 미반영 편집. 미반영 편집은 첫 응답을 받은 뒤 transaction 으로 올린다.
   function startSync() {
     remoteReady = false;
+    flushing = false;
+    syncSession++;
+    pendingUid = currentUid;
+    pending = loadPending(currentUid);
+    let syncedBefore = false;
+    try { syncedBefore = localStorage.getItem(UID_KEY) === currentUid; } catch {}
     booksRef().on('value', snap => {
       const remote = normalizeList(snap.val());
       const first = !remoteReady;
       remoteReady = true;
 
-      // 방금 우리가 올린 값이 되돌아온 경우엔 다시 올리지 않는다 (무한 루프 방지)
-      const inSync = fingerprint(remote) === fingerprint(books);
-
-      if (pendingLocalWrite && !inSync) {
-        // 못 올린 편집이 있다 → 원격으로 덮어쓰지 말고 다시 올린다
-        if (first && books.length === 0) books = loadCache();
-        pushRemote();
-      } else if (first && remote.length === 0 && !pendingLocalWrite) {
-        // 최초 전환: 원격이 비었으면 이 기기의 책을 계정에 올려 보존한다
-        const local = loadCache();
-        books = local;
+      if (first && remote.length === 0 && !syncedBefore && !pending.length) {
+        // 이 계정으로 처음 동기화하는 기기: 원격이 비었으면 이 기기의 책을 계정에 올려 보존한다.
+        // 동기화한 적이 있는 기기는 올리지 않는다 — 다른 기기에서 '전체 삭제'한 뒤 이 기기를 열었을 때 옛 목록이 되살아나면 안 된다.
+        const local = loadCache().filter(b => b && b.id && b.title);
         if (local.length) {
-          pendingLocalWrite = true;
-          pushRemote();
+          local.slice().reverse().forEach(b => queueOp({ t: 'put', b }));
           showToast(`이 기기의 책 ${local.length}권을 계정에 올렸어요 ✓`);
         }
-      } else {
-        books = remote;
       }
+      try { localStorage.setItem(UID_KEY, currentUid); } catch {}
 
+      books = applyOps(remote, pending);
       localStorage.setItem(CACHE_KEY, JSON.stringify(books));
-      if (!pendingLocalWrite) setSyncBadge(true);
+      if (pending.length) flushPending(); else setSyncBadge(true);
       renderBooks();
       updateStorageInfo();
     }, () => {
-      // 구독이 취소됐다(권한 오류 등). 이후 편집은 캐시에만 쌓인다.
+      // 구독이 취소됐다(권한 오류 등). 이후 편집은 캐시와 pending 에만 쌓인다.
       remoteReady = false;
       setSyncBadge(false);
       showToast('동기화가 끊겼어요. 변경사항은 이 기기에만 저장됩니다');
@@ -1268,31 +1331,36 @@ html, body { overscroll-behavior-y: none; }
     if (currentUid) { try { booksRef().off(); } catch {} }
     currentUid = null;
     remoteReady = false;
-    // 다른 계정으로 로그인했을 때 이전 계정의 편집분이 딸려 올라가면 안 된다.
-    // 못 올린 편집은 localStorage에 그대로 남아 있고, 같은 계정으로 다시
-    // 로그인하면 원격이 비어 있을 때 자동으로 복구된다.
-    pendingLocalWrite = false;
+    flushing = false;
+    syncSession++;
+    // 못 올린 편집은 localStorage(PENDING_KEY)에 계정별로 남는다. 같은 계정으로 다시 로그인하면 그때 올리고,
+    // 다른 계정으로 로그인하면 그 계정 것만 다루므로 섞이지 않는다.
+    pending = [];
+    pendingUid = null;
   }
 
   // ═══════════════════════════════
   //  CRUD
   // ═══════════════════════════════
   function createBook(data) {
-    books.unshift({
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-      createdAt: new Date().toISOString(),
-      ...data
-    });
+    const b = { id: newId(), createdAt: new Date().toISOString(), ...data };
+    books.unshift(b);
+    queueOp({ t: 'put', b });
     saveBooks();
   }
 
   function updateBook(id, data) {
     const i = books.findIndex(b => b.id === id);
-    if (i >= 0) { books[i] = { ...books[i], ...data, updatedAt: new Date().toISOString() }; saveBooks(); }
+    if (i < 0) return false;                    // 그 사이 다른 기기에서 지워진 책
+    books[i] = { ...books[i], ...data, updatedAt: new Date().toISOString() };
+    queueOp({ t: 'put', b: books[i] });
+    saveBooks();
+    return true;
   }
 
   function removeBook(id) {
     books = books.filter(b => b.id !== id);
+    queueOp({ t: 'del', id, at: new Date().toISOString() });
     saveBooks();
   }
 
@@ -1686,10 +1754,14 @@ html, body { overscroll-behavior-y: none; }
         if (!Array.isArray(imported) || !imported.length) throw new Error('empty');
 
         const existIds = new Set(books.map(b => b.id));
-        const newOnes  = imported.filter(b => b.title !== undefined && !existIds.has(b.id));
+        const newOnes  = imported
+          .filter(b => b && b.title !== undefined)
+          .map(b => ({ ...b, id: b.id == null || b.id === '' ? newId() : String(b.id) }))   // id 없는 책(다른 앱의 백업 등)은 열지도 지우지도 못하니 붙여 준다
+          .filter(b => !existIds.has(b.id));
 
         if (confirm(`${imported.length}권을 불러올까요?\n중복 제외 ${newOnes.length}권이 추가됩니다.`)) {
           books = [...newOnes, ...books];
+          newOnes.slice().reverse().forEach(b => queueOp({ t: 'put', b }));
           saveBooks();
           renderBooks();
           updateStorageInfo();
@@ -1704,6 +1776,8 @@ html, body { overscroll-behavior-y: none; }
   function clearAllData() {
     if (!books.length) { showToast('저장된 데이터가 없어요'); return; }
     if (confirm(`책 ${books.length}권을 모두 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) {
+      const at = new Date().toISOString();
+      books.forEach(b => queueOp({ t: 'del', id: b.id, at }));   // 이 기기가 보고 있는 책들을 지운다
       books = [];
       saveBooks();
       renderBooks();
