@@ -1423,7 +1423,7 @@ html, body { overscroll-behavior-y: none; }
     const sub = [b.author, b.publisher].filter(Boolean).map(esc).join(' · ');
     const review = b.review ? esc(b.review.slice(0,65)) + (b.review.length>65?'…':'') : '';
     return `
-<article class="book-card" data-id="${b.id}" tabindex="0" role="button" aria-label="${esc(b.title)} 수정">
+<article class="book-card" data-id="${esc(b.id)}" tabindex="0" role="button" aria-label="${esc(b.title)} 수정">
   <div class="card-top">
     <div class="card-badges">
       ${b.category ? `<span class="badge badge-cat">${esc(b.category)}</span>` : ''}
@@ -1431,9 +1431,9 @@ html, body { overscroll-behavior-y: none; }
     </div>
     <div class="card-acts" data-stop>
       ${b.wantToBuy ? (b.purchased
-        ? `<button class="buy-badge bought" data-buy="${b.id}" title="구매완료 · 탭하면 해제">✅ 구매완료</button>`
-        : `<button class="buy-badge want" data-buy="${b.id}" title="구매희망 · 탭하면 구매완료">🛒 구매희망</button>`) : ''}
-      <button class="del-btn" data-del="${b.id}" aria-label="삭제">✕</button>
+        ? `<button class="buy-badge bought" data-buy="${esc(b.id)}" title="구매완료 · 탭하면 해제">✅ 구매완료</button>`
+        : `<button class="buy-badge want" data-buy="${esc(b.id)}" title="구매희망 · 탭하면 구매완료">🛒 구매희망</button>`) : ''}
+      <button class="del-btn" data-del="${esc(b.id)}" aria-label="삭제">✕</button>
     </div>
   </div>
   <h3 class="card-title">${esc(b.title)}</h3>
