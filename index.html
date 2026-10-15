@@ -8,8 +8,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Book Tracker">
-  <link rel="apple-touch-icon" href="/book-tracker/icon.svg">
-  <link rel="manifest" href="/book-tracker/manifest.json">
+  <link rel="apple-touch-icon" href="./icon.svg">
+  <link rel="manifest" href="./manifest.json">
   <title>Book Tracker</title>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -678,6 +678,7 @@ html, body { overscroll-behavior-y: none; }
         </div>
         <div class="login-err" id="loginError"></div>
         <button type="submit" class="btn-pr" id="loginBtn">로그인</button>
+        <button type="button" class="btn-sec" id="googleBtn">구글 계정으로 로그인</button>
       </form>
     </div>
   </div>
@@ -1050,10 +1051,35 @@ html, body { overscroll-behavior-y: none; }
     loadBooks();          // 캐시 먼저 그려서 로그인 확인 중에도 빈 화면이 아니게
     applyTheme();
     renderBooks();
+    // 동기화한 적 있는 기기면 로그인 확인을 기다리지 않고 덮개를 걷는다 (2026-10-15 — 도겸 수면·재무현황과 같은 「사본으로 먼저 열기」).
+    // 그 사이 고친 것은 이 기기의 마지막 계정의 미반영 편집(pending)으로 남아, 서버 첫 응답 뒤 책 단위로 합쳐 올라간다(10/13 구조).
+    // 로그인이 풀려 있으면 onAuthStateChanged 가 덮개를 다시 띄운다
+    try {
+      const lastUid = localStorage.getItem(UID_KEY);
+      if (lastUid && books.length) {
+        pendingUid = lastUid; pending = loadPending(lastUid);
+        g('loginScreen').style.display = 'none';
+        setSyncBadge(false, '최신 확인 중');
+      }
+    } catch {}
     setupEvents();
     registerSW();
     initAuth();
+    showMoveBanner();
   });
+
+  // 주소 이전 (2026-10-15): github.io 공용 주소 → 전용 주소. 옛 주소에선 맨 위에 이동 띠(로그인 화면 위에도).
+  // 책은 계정(RTDB)에 있어 옮길 것이 없다. 다만 아직 못 올린 편집(pending)이 있으면 먼저 동기화되게 안내한다
+  function showMoveBanner() {
+    if (!/(^|\.)github\.io$/.test(location.hostname)) return;
+    const bar = document.createElement('div');
+    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100000;background:#f59e0b;color:#111;padding:10px 12px;text-align:center;font-size:14px;line-height:1.5;font-weight:600';
+    let waiting = 0;
+    try { const all = JSON.parse(localStorage.getItem(PENDING_KEY) || '{}'); waiting = Object.values(all).reduce((n, l) => n + (Array.isArray(l) ? l.length : 0), 0); } catch {}
+    bar.innerHTML = 'Book Tracker가 새 주소로 옮겼습니다 ' + (waiting ? '<br><small>아직 못 올린 편집 ' + waiting + '건 — 인터넷이 연결된 채로 「동기화됨」이 될 때까지 기다린 뒤 이동하세요</small> ' : '') +
+      '<a href="https://minsung-books.web.app/" style="margin-left:8px;padding:4px 12px;border-radius:6px;background:#111;color:#fff;text-decoration:none">새 주소로 이동</a>';
+    document.body.appendChild(bar);
+  }
 
   // ═══════════════════════════════
   //  AUTH — 부부가계부(minsung-buboo2)와 같은 Firebase 프로젝트/계정을 쓴다.
@@ -1077,7 +1103,9 @@ html, body { overscroll-behavior-y: none; }
     'auth/user-not-found':       '등록되지 않은 계정이에요',
     'auth/too-many-requests':    '시도가 너무 많아요. 잠시 후 다시 해주세요',
     'auth/network-request-failed':'네트워크에 연결할 수 없어요',
-    'auth/unauthorized-domain':  '이 주소가 Firebase 승인 도메인에 없어요'
+    'auth/unauthorized-domain':  '이 주소가 Firebase 승인 도메인에 없어요',
+    'auth/admin-restricted-operation': '이 구글 계정은 등록되어 있지 않아요. 이메일·비밀번호로 로그인해 주세요',
+    'auth/popup-closed-by-user': ''
   };
 
   function initAuth() {
@@ -1095,6 +1123,7 @@ html, body { overscroll-behavior-y: none; }
     firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
 
     g('loginForm').addEventListener('submit', doLogin);
+    g('googleBtn').addEventListener('click', doGoogleLogin);
 
     firebase.auth().onAuthStateChanged(user => {
       if (user) {
@@ -1130,6 +1159,22 @@ html, body { overscroll-behavior-y: none; }
     } finally {
       btn.disabled = false;
       btn.textContent = '로그인';
+    }
+  }
+
+  // 구글 로그인 (2026-10-15 사용자 요청 — 다른 앱들처럼). 계정에 구글이 이미 연결돼 있어 같은 uid로 들어온다.
+  // 프로젝트가 새 계정 만들기를 막아 두어(disabledUserSignup) 연결 안 된 구글 계정은 admin-restricted-operation 으로 거절된다
+  async function doGoogleLogin() {
+    setText('loginError', '');
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    try { await firebase.auth().signInWithPopup(provider); }
+    catch (err) {
+      if (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment') {
+        try { await firebase.auth().signInWithRedirect(provider); return; } catch (e2) { err = e2; }
+      }
+      const msg = AUTH_ERRORS[err.code];
+      setText('loginError', msg === undefined ? '로그인에 실패했어요 (' + err.code + ')' : msg);
     }
   }
 
@@ -1917,7 +1962,7 @@ html, body { overscroll-behavior-y: none; }
   // ═══════════════════════════════
   function registerSW() {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/book-tracker/sw.js')
+      navigator.serviceWorker.register('./sw.js')
         .then(r => console.log('SW registered:', r.scope))
         .catch(err => console.warn('SW registration failed:', err));
     }

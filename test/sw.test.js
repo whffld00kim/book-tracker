@@ -8,9 +8,9 @@ const H = require('./helpers.js');
 
 const read = f => fs.readFileSync(path.join(H.APP_DIR, f), 'utf8');
 
-test('sw.js: 캐시 버전은 book-tracker-v12 이고 이 앱 접두사만 지운다', () => {
+test('sw.js: 캐시 버전은 book-tracker-v13 이고 이 앱 접두사만 지운다', () => {
   const sw = read('sw.js');
-  assert.equal(/const CACHE = '([^']+)'/.exec(sw)[1], 'book-tracker-v12');
+  assert.equal(/const CACHE = '([^']+)'/.exec(sw)[1], 'book-tracker-v13');
   assert.ok(sw.includes("k.startsWith('book-tracker-') && k !== CACHE"), '다른 앱의 캐시를 지우지 않아야 한다');
   assert.ok(sw.includes('const CDN_HOSTS = ["www.gstatic.com"]'), '캐시 허용 호스트는 gstatic 만');
 });
@@ -30,12 +30,13 @@ test('sw.js 의 OWN 목록 = 이 앱의 파일 (index.html·manifest 가 가리�
   const ownFiles = OWN.map(u => u.replace(/^\.\//, '')).filter(Boolean);
   const manifest = JSON.parse(read('manifest.json'));
   const referenced = [
-    ...[...html.matchAll(/href="\/book-tracker\/([^"]+)"/g)].map(m => m[1]),   // manifest, apple-touch-icon
-    ...manifest.icons.map(i => i.src.replace('/book-tracker/', '')),
+    ...[...html.matchAll(/href="\.\/([^"]+\.(?:json|svg))"/g)].map(m => m[1]),   // manifest, apple-touch-icon (2026-10-15 상대 경로)
+    ...manifest.icons.map(i => i.src.replace(/^\.\//, '')),
   ];
   for (const f of referenced) assert.ok(ownFiles.includes(f), `${f} 가 sw.js OWN 에 없다 (미리 받아 두지 않으면 오프라인에서 빠진다)`);
   for (const f of ownFiles) assert.ok(fs.existsSync(path.join(H.APP_DIR, f)), `OWN 의 ${f} 파일이 저장소에 없다 (install 이 실패한다)`);
-  assert.equal(manifest.start_url, '/book-tracker/');
-  assert.equal(manifest.scope, '/book-tracker/');
-  assert.ok(html.includes("navigator.serviceWorker.register('/book-tracker/sw.js')"));
+  // 2026-10-15 전용 주소(minsung-books.web.app)로 옮기며 상대 경로로 — 옛 /book-tracker/ 와 새 주소 루트 양쪽에서 맞는다
+  assert.equal(manifest.start_url, './');
+  assert.equal(manifest.scope, './');
+  assert.ok(html.includes("navigator.serviceWorker.register('./sw.js')"));
 });
